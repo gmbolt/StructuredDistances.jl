@@ -5,7 +5,12 @@ version = "0.1.0"
 
 [deps]
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
+Hungarian = "e91730f6-4275-51fb-a7a0-7064cfbd3b39"
+InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 julia = "1"
