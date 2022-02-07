@@ -3,6 +3,10 @@ uuid = "4b10685a-d40a-47ba-91ef-340327e5d163"
 authors = ["George Bolt g.bolt@lancaster.ac.uk"]
 version = "0.1.0"
 
+[deps]
+Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+
 [compat]
 julia = "1"
 
