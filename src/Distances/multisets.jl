@@ -10,7 +10,7 @@ export matching_dist_with_memory!
 # Matching Distance 
 # -----------------
 
-struct MatchingDist{T<:InteractionDistance} <: Metric
+struct MatchingDist{T<:Metric} <: Metric
     ground_dist::T
 end
 
@@ -111,7 +111,7 @@ end
 function matching_dist_with_memory!(
     S1::InteractionSequence{T}, 
     S2::InteractionSequence{T},
-    d::InteractionDistance,
+    d::Metric,
     C::AbstractArray
     ) where {T<:Union{Int, String}}
     
@@ -351,7 +351,7 @@ function (d::SquaredDiff)(N::Int, M::Int)
     return (N-M)^2
 end 
 
-# struct EMD{T<:InteractionDistance} <: InteractionSetDistance
+# struct EMD{T<:Metric} <: InteractionSetDistance
 #     ground_dist::T
 # end
 
@@ -382,7 +382,7 @@ end
 
 
 # # EMD composed with a distance of the number of interactions
-# struct sEMD{T<:InteractionDistance, G<:LengthDistance} <: InteractionSetDistance
+# struct sEMD{T<:Metric, G<:LengthDistance} <: InteractionSetDistance
 #     ground_dist::T
 #     length_dist::G
 #     τ::Real # Relative weighting term (a proportion weighting EMD vs length distance, high τ => high EMD weighting)
@@ -399,7 +399,7 @@ end
 
 # end 
 
-# struct sEMD2{T<:InteractionDistance, G<:LengthDistance} <:InteractionSetDistance 
+# struct sEMD2{T<:Metric, G<:LengthDistance} <:InteractionSetDistance 
 #     ground_dist::T
 #     length_dist::G
 #     τ::Real

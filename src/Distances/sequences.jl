@@ -7,7 +7,7 @@ export NormPenalisedDTW
 
 # EditDistance
 # ---
-struct EditDistance{T<:InteractionDistance} <: Metric
+struct EditDistance{T<:Metric} <: Metric
     ground_dist::T
 end
 
@@ -37,7 +37,7 @@ end
 # EditDistance with Memory
 # ---------------
 
-struct FastEditDistance{T<:InteractionDistance} <: Metric
+struct FastEditDistance{T<:Metric} <: Metric
     ground_dist::T
     curr_row::Vector{Float64}
     prev_row::Vector{Float64}
@@ -224,7 +224,7 @@ end
 
 
 
-struct AvgSizeFpEditDistance{T<:InteractionDistance} <: Metric
+struct AvgSizeFpEditDistance{T<:Metric} <: Metric
     ground_dist::T
     ρ::Real
 end 
@@ -239,7 +239,7 @@ end
 
 # Normed EditDistance
 
-struct NormFpEditDistance{T<:InteractionDistance} <: Metric
+struct NormFpEditDistance{T<:Metric} <: Metric
     ground_dist::T
     ρ::Real # Penalty
 end
@@ -404,7 +404,7 @@ struct NormPenalisedDTW <: SemiMetric
     ground_dist::Metric
     ρ::Real
     d_unnorm::PenalisedDTW
-    function NormPenalisedDTW(d::InteractionDistance, ρ::Real)
+    function NormPenalisedDTW(d::Metric, ρ::Real)
         new(d, ρ, PenalisedDTW(d, ρ))
     end 
 end
