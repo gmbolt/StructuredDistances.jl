@@ -1,6 +1,6 @@
 using Distances, StatsBase, ProgressMeter
-export pairwise_inbounds, pairwise_inbounds!
-# Here we simply extend the pairwise() and pairwise!() functions of the Distances.jl package. 
+export pairwise_inbounds, pairwise_inbounds!, progress_pairwise
+
 
 """
 In-place distance matrix calculation between elements of Vectors.
@@ -121,14 +121,12 @@ function pairwise_inbounds(
 end
 
 """
-Distance matrix calculation between elements of Vectors. This is a custom extension
-of the function in the Distances.jl package to allow vectors of interaction sequences.
+Distance matrix calculation between elements of Vectors with progress bar.
 """
-function Distances.pairwise(
+function progress_pairwise(
     d::Metric,
-    a::Vector{T};
-    show_progress=false
-    ) where {T<:Union{InteractionSequence{Int},InteractionSequence{String}}}
+    a::Vector{T}
+    ) where {T}
 
     D = zeros(length(a), length(a))
     if show_progress
@@ -150,16 +148,4 @@ function Distances.pairwise(
         D += D'
         return D
     end 
-end
-
-function StatsBase.counts(
-    data::Vector{String},
-    ref::Vector{String}
-    )
-    out = zeros(Int,length(ref))
-    for v in data 
-        ind = findfirst(x->x==v,ref)
-        out[ind] += 1
-    end 
-    return out 
 end

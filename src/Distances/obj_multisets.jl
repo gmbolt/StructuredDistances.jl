@@ -14,7 +14,7 @@ struct MatchingDist{T<:Metric} <: Metric
     ground_dist::T
 end
 
-function (d::MatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int, String}}
+function (d::MatchingDist)(S1::Vector{T}, S2::Vector{T}) where {T}
     if length(S1) < length(S2)  # Ensure first is seq longest
         d(S2,S1)
     else
@@ -32,10 +32,10 @@ function (d::MatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T
     end
 end
 
-function (dist::MatchingDist)(X::Nothing, Y::InteractionSequence{T})::Float64 where {T<:Union{Int,String}}
+function (dist::MatchingDist)(X::Nothing, Y::Vector{T})::Float64 where {T<:Union{Int,String}}
     return sum(p->dist.ground_dist(nothing,p), Y)
 end 
-function (dist::MatchingDist)(X::InteractionSequence{T}, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+function (dist::MatchingDist)(X::Vector{T}, Y::Nothing)::Float64 where {T<:Union{Int,String}}
     return sum(p->dist.ground_dist(nothing,p), X)
 end 
 
@@ -45,7 +45,7 @@ end
 
 function print_matching(
     d::MatchingDist, 
-    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    S1::Vector{T}, S2::Vector{T}
     ) where {T<:Union{Int,String}}
 
     # N.B. - do not use any if statments here like in evaluation of the distance. We simply do most general formulation since this will be right in all cases, and we do not care so much for controlling the size of the optimisation problem for this function since its performance is not of a concern (purely for extra info on distance).
@@ -86,7 +86,7 @@ struct FastMatchingDist <: Metric
     end 
 end 
 
-function (d::FastMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int, String}}
+function (d::FastMatchingDist)(S1::Vector{T}, S2::Vector{T}) where {T}
     if length(S1) < length(S2)  # Ensure first is seq longest
         d(S2,S1)
     else
@@ -109,11 +109,11 @@ function (d::FastMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequen
 end
 
 function matching_dist_with_memory!(
-    S1::InteractionSequence{T}, 
-    S2::InteractionSequence{T},
+    S1::Vector{T}, 
+    S2::Vector{T},
     d::Metric,
     C::AbstractArray
-    ) where {T<:Union{Int, String}}
+    ) where {T}
     
     if length(S1) < length(S2)  # Ensure first is seq longest
         matching_dist_with_memory!(S2,S1,d,C)
@@ -146,7 +146,7 @@ struct FpMatchingDist{T<:Metric} <: Metric
 end
 
 function (d::FpMatchingDist)(
-    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    S1::Vector{T}, S2::Vector{T}
     ) where {T<:Union{Int,String}}
 
     length(S1) < length(S2) ? (N_min, N_max)=(length(S1),length(S2)) : (N_min,N_max)=(length(S2),length(S1))
@@ -167,7 +167,7 @@ end
 
 function print_matching(
     d::FpMatchingDist, 
-    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    S1::Vector{T}, S2::Vector{T}
     ) where {T<:Union{Int,String}}
 
     # N.B. - do not use any if statments here like in evaluation of the distance. We simply do most general formulation since this will be right in all cases, and we do not care so much for controlling the size of the optimisation problem for this function since its performance is not of a concern (purely for extra info on distance).
@@ -199,7 +199,7 @@ end
 
 function (d::AvgSizeFpMatchingDist)(
     S1::Vector{Path{T}}, S2::Vector{Path{T}}
-    ) where {T<:Union{Int, String}}
+    ) where {T}
 
     d_m = FpMatchingDist(d.ground_dist, d.penalty)(S1, S2)[1]
 
@@ -211,7 +211,7 @@ struct NormFpMatchingDist{T<:Metric} <: Metric
     penalty::Real
 end
 
-function (d::NormFpMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+function (d::NormFpMatchingDist)(S1::Vector{T}, S2::Vector{T}) where {T<:Union{Int,String}}
     if length(S1) < length(S2)
         d(S2,S1)
     else
@@ -229,7 +229,7 @@ struct CouplingDistance{T<:Metric} <: SemiMetric
 end 
 
 function (d::CouplingDistance)(
-    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    S1::Vector{T}, S2::Vector{T}
     ) where {T<:Union{Int,String}}
 
     if length(S1) < length(S2)  # Ensure first is seq longest
@@ -254,7 +254,7 @@ struct PenalisedCouplingDistance{T<:Metric} <: SemiMetric
 end 
 
 function (d::PenalisedCouplingDistance)(
-    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    S1::Vector{T}, S2::Vector{T}
     ) where {T<:Union{Int,String}}
 
     d_tmp = CouplingDistance(d.ground_dist)(S1,S2)
@@ -264,7 +264,7 @@ end
 
 function print_matching(
     d::Union{CouplingDistance, PenalisedCouplingDistance}, 
-    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    S1::Vector{T}, S2::Vector{T}
     ) where {T<:Union{Int,String}}
 
     C = Distances.pairwise(d.ground_dist, S1, S2)
@@ -355,7 +355,7 @@ end
 #     ground_dist::T
 # end
 
-# function (d::EMD)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+# function (d::EMD)(S1::Vector{T}, S2::Vector{T}) where {T<:Union{Int,String}}
 
 #     a = countmap(S1)
 #     b = countmap(S2)
@@ -388,7 +388,7 @@ end
 #     τ::Real # Relative weighting term (a proportion weighting EMD vs length distance, high τ => high EMD weighting)
 # end 
 
-# function (d::sEMD)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int, String}}
+# function (d::sEMD)(S1::Vector{T}, S2::Vector{T}) where {T}
     
 #     d₁ = EMD(d.ground_dist)(S1, S2)
 #     d₂ = d.length_dist(length(S1), length(S2))
@@ -405,7 +405,7 @@ end
 #     τ::Real
 # end 
 
-# function (d::sEMD2)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+# function (d::sEMD2)(S1::Vector{T}, S2::Vector{T}) where {T<:Union{Int,String}}
     
 #     d₁ = EMD(d.ground_dist)(S1, S2)
 #     d₂ = d.length_dist(sum(length.(S1)), sum(length.(S2)))

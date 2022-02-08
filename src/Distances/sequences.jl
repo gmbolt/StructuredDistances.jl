@@ -1,476 +1,283 @@
-using StatsBase, Distances, Printf
+using Distances, InvertedIndices
 
-export EditDistance, FastEditDistance, FpEditDistance, NormFpEditDistance, AvgSizeFpEditDistance, DTW, PenalisedDTW
-export print_matching
-export NormPenalisedDTW
+export LCS, FastLCS, NormLCS, FastNormLCS, lcs, get_lcs, lcs_norm, get_lcs_locations
+export LSP, FastLSP
+## Interaction Distances
 
+struct LCS <: Metric end
+struct NormLCS <: Metric end
+struct FastLCS <: Metric 
+    curr_row::Vector{Int}
+    prev_row::Vector{Int}
+    function FastLCS(K::Int)
+        new(zeros(Int,K), zeros(Int,K))
+    end 
+end 
 
-# EditDistance
-# ---
-struct EditDistance{T<:Metric} <: Metric
-    ground_dist::T
+function Base.show(io::IO, d::FastLCS)
+    println(io, "LCS (max interaction len. $(length(d.curr_row)))")
+end 
+struct FastNormLCS <: Metric
+    curr_row::Vector{Int}
+    prev_row::Vector{Int}
+    function FastNormLCS(K::Int)
+        new(zeros(Int,K), zeros(Int,K))
+    end 
+end 
+
+# LCS
+function (dist::LCS)(X::AbstractVector,Y::AbstractVector)::Float64
+
+    n = length(X)
+    m = length(Y)
+
+    # @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
+
+    # Code only needs previous row to update next row using the rule from
+    # Wagner-Fisher algorithm
+
+    #            Y
+    #       0 1 2   ...
+    #    X  1 0
+    #       2
+    prevRow = 0:m
+    currRow = zeros(Int, m + 1)
+    @inbounds begin 
+        for i = 1:n
+            currRow[1] = i
+            for j = 1:m
+                if X[i] == Y[j]
+                    currRow[j+1] = prevRow[j]
+                else
+                    currRow[j+1] = min(currRow[j], prevRow[j+1]) + 1
+                end
+            end
+            prevRow = copy(currRow)
+        end 
+    end 
+    return currRow[end]
 end
 
-function (d::EditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-    if length(S1) < length(S2)  # This ensures first seq is longest
-        d(S2, S1)
-    else
-        d₀ = d.ground_dist
-        prev_row = pushfirst!(cumsum([d₀(nothing, p) for p in S2]), 0.0);
-        curr_row = zeros(Float64, length(S2) + 1);
+# With storage 
+function (d::FastLCS)(
+    X::AbstractVector,Y::AbstractVector
+    )::Float64
 
-        for i = 1:length(S1)
-            curr_row[1] = prev_row[1] + length(S1[i])
-            for j = 1:(length(S2))
-                # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
-                curr_row[j+1] = min(prev_row[j] + d₀(S1[i], S2[j]),
-                                        prev_row[j+1] + d₀(nothing, S1[i]),
-                                        curr_row[j] + d₀(nothing, S2[j]))
+    n = length(X)
+    m = length(Y)
+
+    @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
+
+    prev_row = view(d.prev_row, 1:(m+1))
+    curr_row = view(d.curr_row, 1:(m+1))
+
+    copy!(prev_row, 0:m)
+    curr_row .= 0
+
+
+    @inbounds begin 
+        for i = 1:n
+            curr_row[1] = i
+            for j = 1:m
+                if X[i] == Y[j]
+                    curr_row[j+1] = prev_row[j]
+                else
+                    curr_row[j+1] = min(curr_row[j], prev_row[j+1]) + 1
+                end
             end
-            # @show curr_row
             copy!(prev_row, curr_row)
         end
-        return curr_row[end]
-    end
+    end 
+    return curr_row[m+1]
 end
 
-# EditDistance with Memory
-# ---------------
+# Distances to the null 
+function (dist::Union{LCS,FastLCS})(X::Nothing, Y::Vector{T})::Float64 where {T<:Union{Int,String}}
+    return length(Y)
+end 
+function (dist::Union{LCS,FastLCS})(X::Vector{T}, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+    return length(X)
+end
+function (dist::Union{LCS,FastLCS})(X::Nothing, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+    return 0.0
+end 
 
-struct FastEditDistance{T<:Metric} <: Metric
-    ground_dist::T
+
+
+# Normalised LCS
+function (dist::NormLCS)(X::AbstractVector,Y::AbstractVector)
+    n = length(X)
+    m = length(Y)
+    d_lcs = lcs(X, Y)
+    return 2 * d_lcs / (n + m + d_lcs)
+end
+
+function (d::FastNormLCS)(
+    X::AbstractVector,Y::AbstractVector
+    )::Float64
+
+    n = length(X)
+    m = length(Y)
+
+    @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
+
+    @inbounds prev_row = view(d.prev_row, 1:(m+1))
+    @inbounds curr_row = view(d.curr_row, 1:(m+1))
+
+    copy!(prev_row, 0:m)
+    curr_row .= 0
+
+    # @show prev_row, curr_row
+
+    @inbounds begin 
+        for i = 1:n
+            curr_row[1] = i
+            for j = 1:m
+                if X[i] == Y[j]
+                    curr_row[j+1] = prev_row[j]
+                else
+                    curr_row[j+1] = min(curr_row[j], prev_row[j+1]) + 1
+                end
+            end
+            copy!(prev_row, curr_row)
+        end
+        d_lcs = curr_row[m+1]
+    end 
+    return 2 * d_lcs / (n + m + d_lcs)
+end
+
+function (dist::Union{NormLCS,FastNormLCS})(X::Nothing, Y::Vector{T}) where {T<:Union{Int,String}}
+    return 1.0
+end 
+function (dist::Union{NormLCS,FastNormLCS})(X::Vector{T}, Y::Nothing) where {T<:Union{Int,String}}
+    return 1.0
+end 
+function (dist::Union{NormLCS,FastNormLCS})(X::Nothing, Y::Nothing) where {T<:Union{Int,String}}
+    return 0.0
+end 
+
+
+# Get locations of longest common subseq (for visuals)
+
+function get_lcs_locations(X::AbstractVector, Y::AbstractVector)
+    
+    C = zeros(Int, length(X)+1, length(Y)+1)
+
+    C[:,1] = [i for i = 0:length(X)]
+    C[1,:] = [i for i = 0:length(Y)]
+
+    for j = 1:length(Y)
+        for i = 1:length(X)
+            C[i+1,j+1] = minimum([
+            C[i,j] + 2*(X[i] != Y[j]),
+            C[i,j+1] + 1,
+            C[i+1,j] + 1
+            ])
+        end 
+    end 
+
+    i = length(X)+1; j = length(Y)+1;
+    indx = Vector{Int}()
+    indy = Vector{Int}() 
+    # outputs = Vector{String}()
+    while (i ≠ 1) & (j ≠ 1)
+        if C[i,j] == (C[i-1,j] + 1)
+            # println("Insert $(X[i-1]) of X")
+            i = i-1
+        elseif C[i,j] == (C[i, j-1] + 1)
+            # println("Insert $(Y[j-1]) of Y")
+            j = j-1 
+        elseif C[i,j] == (C[i-1, j-1])
+            # println("Sub $(X[i-1]) for $(Y[j-1])")
+            pushfirst!(indx, i-1)
+            pushfirst!(indy, j-1)
+            i = i-1; j = j-1
+        end
+    end
+
+    return indx, indy
+end
+
+# Longest Common Subpath (LSP)
+
+struct LSP <: Metric end
+
+function (dist::LSP)(X::AbstractVector,Y::AbstractVector)::Float64
+
+    # Here we consider a Dynamic programming approach
+    n = length(X)
+    m = length(Y)
+
+    @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
+
+    prev_row = zeros(Float64, m + 1)
+    curr_row = zeros(Float64, m + 1)
+    z = 0.0
+
+    @inbounds begin 
+        for i = 1:n
+            for j = 1:m
+                if X[i] == Y[j]
+                    curr_row[j+1] = prev_row[j] + 1.0 # Subpath length increment
+                    if curr_row[j+1] > z 
+                        z = curr_row[j+1]
+                    end 
+                else
+                    curr_row[j+1] = 0.0
+                end
+            end
+            copy!(prev_row, curr_row)
+        end
+    end 
+    return n + m - 2*z
+end
+
+struct FastLSP <: Metric 
     curr_row::Vector{Float64}
     prev_row::Vector{Float64}
-    function FastEditDistance(ground_dist::S, K::Int) where {S<:Metric}
-        new{S}(ground_dist, zeros(Float64, K), zeros(Float64, K))
+    function FastLSP(K::Int)
+        new(zeros(Float64,K), zeros(Float64,K))
     end 
-end
-function Base.show(io::IO, d::FastEditDistance)
-    print(io, "EditDistance (max num. interactions $(length(d.curr_row))) with $(d.ground_dist) ground distance.")
-end
-
-function (d::FastEditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-    if length(S1) < length(S2)  # This ensures first seq is longest
-        d(S2, S1)
-    else
-        d₀ = d.ground_dist
-        prev_row = view(d.prev_row, 1:(length(S2)+1))
-        curr_row = view(d.curr_row, 1:(length(S2)+1))
-        # prev_row = d.prev_row
-        # curr_row = d.curr_row
-
-        prev_row[1] = 0.0
-        for i in 1:length(S2)
-            prev_row[i+1] = prev_row[i] + d₀(nothing, S2[i])
-        end 
-        curr_row .= 0.0
-        
-
-        @views for i = 1:length(S1)
-            curr_row[1] = prev_row[1] + length(S1[i])
-            for j = 1:(length(S2))
-                # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
-                curr_row[j+1] = min(
-                    prev_row[j] + d₀(S1[i], S2[j]), 
-                    prev_row[j+1] + d₀(nothing, S1[i]), 
-                    curr_row[j] + d₀(nothing, S2[j])
-                    )
-            end
-            # @show curr_row
-            copy!(prev_row, curr_row)
-        end
-        return curr_row[length(S2) + 1]
-    end
-end
-
-
-function print_matching(
-    d::Union{EditDistance,FastEditDistance}, 
-    S1::InteractionSequence{T}, S2::InteractionSequence{T}
-    ) where {T<:Union{Int,String}}
-    
-    d₀ = d.ground_dist
-    # First find the substitution matrix
-    C = zeros(Float64, length(S1)+1, length(S2)+1)
-    C[:,1] = pushfirst!(cumsum([d₀(Λ, p) for p in S1]), 0.0);
-    C[1,:] = pushfirst!(cumsum([d₀(Λ, p) for p in S2]), 0.0);
-
-    for j in 1:length(S2)
-        for i in 1:length(S1)
-            C[i+1,j+1] = minimum([
-                C[i,j] + d₀(S1[i], S2[j]),
-                C[i,j+1] + d₀(nothing, S2[j]),
-                C[i+1,j] + d₀(nothing, S1[i])
-            ])
-        end 
-    end
-    # Now retrace steps to determine an optimal matching
-    i, j = size(C)
-    pairs = Tuple{Int,Int}[]
-    while (i ≠ 1) & (j ≠ 1)
-        if C[i,j] == (C[i,j-1] + d₀(Λ, S2[j-1]))
-            pushfirst!(pairs, (0,j-1))
-            j = j-1
-        elseif C[i,j] == (C[i-1,j] + d₀(Λ, S1[i-1]))
-            pushfirst!(pairs, (i-1,0))
-            i = i-1
-        else
-            pushfirst!(pairs,(i-1,j-1))
-            i = i-1; j = j-1
-        end
-    end
-    for k in Iterators.reverse(1:(i-1))
-        pushfirst!(pairs, (k,0))
-    end 
-    for k in Iterators.reverse(1:(j-1))
-        pushfirst!(pairs, (0,k))
-    end 
-    max_len = maximum(map(x->length(@sprintf("%s",x)), S1))
-    # @show outputs
-    title = "\nOptimal Matching"
-    println(title)
-    println("-"^length(title), "\n")
-    for (k,l) in pairs 
-        if k == 0 
-            tmp_S1 = "Λ"
-            tmp_S2 = S2[l] 
-        elseif l == 0 
-            tmp_S2 = "Λ"
-            tmp_S1 = S1[k]
-        else 
-            tmp_S1, tmp_S2 = (S1[k], S2[l])
-        end 
-        pad = max_len - length(@sprintf("%s", tmp_S1))
-        println("$tmp_S1" * " "^pad, " → $tmp_S2")
-    end
-
 end 
 
+function (dist::FastLSP)(X::AbstractVector,Y::AbstractVector)::Float64
+    # Here we take a Dynamic programming approach, but use pre-allocated arrays for storage.
+    n = length(X)
+    m = length(Y)
 
-struct FpEditDistance{T<:Metric} <: Metric
-    ground_dist::T
-    ρ::Real
-end
+    @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
 
-function (d::FpEditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-    if length(S1) < length(S2)  # This ensures first seq is longest
-        d(S2, S1)
-    else
-        prev_row = d.ρ/2 * collect(0:length(S2));
-        curr_row = zeros(Float64, length(S2) + 1);
-
-        for i = 1:length(S1)
-            curr_row[1] = i*d.ρ
-            for j = 1:(length(S2))
-                # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
-                curr_row[j+1] = minimum([prev_row[j] + d.ground_dist(S1[i], S2[j]),
-                                        prev_row[j+1] + d.ρ/2,
-                                        curr_row[j] + d.ρ/2])
-            end
-            # @show curr_row
-            prev_row = copy(curr_row)
-        end
-        return curr_row[end]
-    end
-end
-
-
-
-function print_matching(d::FpEditDistance, S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-
-    # First find the substitution matricx
-    C = zeros(Float64, length(S1)+1, length(S2)+1)
+    prev_row = view(dist.prev_row, 1:(m+1))
+    curr_row = view(dist.curr_row, 1:(m+1))
     
-    C[:,1] = [d.ρ/2 * i for i = 0:length(S1)]
-    C[1,:] = [d.ρ/2 * i for i = 0:length(S2)]
-    
-    for j = 1:length(S2)
-        for i = 1:length(S1)
-            C[i+1,j+1] = minimum([
-            C[i,j] + d.ground_dist(S1[i], S2[j]),
-            C[i,j+1] + d.ρ/2,
-            C[i+1,j] + d.ρ/2
-            ])
-        end
-    end
-
-    # Now retrace steps to determine an optimal matching
-    i, j = size(C)
-    outputs = Vector{String}()
-    while (i ≠ 1) | (j ≠ 1)
-        if C[i,j] == (C[i-1,j] + d.ρ/2 )
-            pushfirst!(outputs, "$(S1[i-1]) --> Nothing")
-            i = i-1
-        elseif C[i,j] == (C[i,j-1] + d.ρ/2)
-            pushfirst!(outputs, "Nothing --> $(S2[j-1])")
-            j = j-1
-        else
-            pushfirst!(outputs, "$(S1[i-1]) ---> $(S2[j-1])")
-            i = i-1; j = j-1
-        end
-    end
-    # @show outputs
-    title = "\nOptimal Matching Print-out for Fixed-Penalty EditDistance"
-    println(title)
-    println("-"^length(title), "\n")
-    println("The cheapest way to do the tranformation...\n")
-    println(S1, "---->", S2)
-    println("\n...is the following series of edits...\n")
-    for statement in outputs
-        println(statement)
-    end
-end
-
-
-
-
-struct AvgSizeFpEditDistance{T<:Metric} <: Metric
-    ground_dist::T
-    ρ::Real
-end 
-
-function (d::AvgSizeFpEditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-
-    d_ed = FpEditDistance(d.ground_dist, d.ρ)(S1, S2)
-
-    return d_ed + (mean(length.(S1)) - mean(length.(S2)))^2
-
-end 
-
-# Normed EditDistance
-
-struct NormFpEditDistance{T<:Metric} <: Metric
-    ground_dist::T
-    ρ::Real # Penalty
-end
-
-function (d::NormFpEditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-    if length(S1) < length(S2)
-        d(S2, S1)
-    else
-        tmp_d = FpEditDistance(d.ground_dist, d.ρ)(S1, S2)
-        return 2*tmp_d / ( d.ρ*(length(S1) + length(S2)) + tmp_d )
-    end
-end
-
-# Dynamic Time Warping (DTW)
-# ==========================
-
-# Standard 
-# --------
-struct DTW <: SemiMetric
-    ground_dist::Metric
-end
-
-function (d::DTW)(
-    S1::InteractionSequence{T}, S2::InteractionSequence{T}
-    ) where {T<:Union{Int,String}}
-    if length(S1) < length(S2)  # This ensures first seq is longest
-        d(S2, S1)
-    else
-        @assert (length(S1)>0) & (length(S2)>0) "both args must be either of type Nothing or of nonzero length."
-        d_g = d.ground_dist
-        prev_row = pushfirst!(fill(Inf, length(S2)), 0.0);
-        curr_row = fill(Inf, length(S2) + 1);
-
-        for i = 1:length(S1)
-            # curr_row[1] = prev_row[1]
-            for j = 1:(length(S2))
-                # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
-                cost = d_g(S1[i],S2[j])
-                curr_row[j+1] = cost + min(prev_row[j], prev_row[j+1], curr_row[j])
-            end
-            # @show curr_row
-            copy!(prev_row, curr_row)
-        end
-        return curr_row[end]
-    end
-end
-
-function (d::DTW)(
-    S1::Nothing, S2::InteractionSequence{T}
-    ) where {T<:Union{Int,String}}
-
-    d_g = d.ground_dist
+    prev_row .= 0.0
+    curr_row .= 0.0
     z = 0.0
-    for x in S2
-        z += d_g(x, nothing) 
-    end 
-    return z + length(S2) 
 
-end 
-(d::DTW)(S1::InteractionSequence{T}, S2::Nothing) where {T<:Union{Int,String}} = d(S2,S1)
-(d::DTW)(S1::Nothing, S2::Nothing) where {T<:Union{Int,String}} = 0.0
-
-
-function print_matching(
-    d::DTW, 
-    S1::InteractionSequence{T}, S2::InteractionSequence{T}
-    ) where {T<:Union{Int,String}}
-    
-    d = d.ground_dist
-    # First find the substitution matrix
-    C = fill(Inf, length(S1)+1, length(S2)+1)
-    C[1,1] = 0.0
-
-    for j in 1:length(S2)
-        for i in 1:length(S1)
-            cost = d(S1[i], S2[j])
-            C[i+1,j+1] = cost + min(C[i+1,j], C[i,j+1], C[i,j])
-        end 
-    end
-    # Now retrace steps to determine an optimal matching
-    i, j = size(C)
-    pairs = Tuple{Int,Int}[]
-    pushfirst!(pairs, (i-1,j-1))
-    while (i ≠ 2) | (j ≠ 2)
-        i_tmp, j_tmp = argmin(view(C, (i-1):i, (j-1):j)).I
-        i = i - 2 + i_tmp
-        j = j - 2 + j_tmp
-        pushfirst!(pairs, (i-1,j-1))
-    end
-    # @show outputs
-    title = "Optimal Coupling"
-    println(title)
-    println("-"^length(title), "\n")
-    # for statement in outputs
-    #     println(statement)
-    # end
-    i_tmp,j_tmp = (0,0)
-    for (i,j) in pairs 
-        if i == i_tmp 
-            println(" "^length(@sprintf("%s",S1[i])) * " ↘ $(S2[j])")
-        elseif j == j_tmp
-            println("$(S1[i]) ↗ " * " "^length(@sprintf("%s",S2[j])))
-        else 
-            println("$(S1[i]) → $(S2[j])")
-        end 
-        i_tmp, j_tmp = (i,j)
-    end 
-
-end 
-
-# Penalised 
-# ---------
-
-struct PenalisedDTW <: Metric
-    ground_dist::Metric
-    ρ::Real
-end
-
-function (d::PenalisedDTW)(
-    S1::InteractionSequence{T}, S2::InteractionSequence{T}
-    ) where {T<:Union{Int,String}}
-    if length(S1) < length(S2)  # This ensures first seq is longest
-        d(S2, S1)
-    else
-        d_g = d.ground_dist
-        prev_row = pushfirst!(fill(Inf, length(S2)), 0.0);
-        curr_row = fill(Inf, length(S2) + 1);
-
-        for i = 1:length(S1)
-            # curr_row[1] = prev_row[1]
-            for j = 1:(length(S2))
-                # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
-                cost = d_g(S1[i],S2[j])
-                curr_row[j+1] = cost + min(
-                    prev_row[j], # New pair (no warping)
-                    prev_row[j+1] + d.ρ, # Warping 
-                    curr_row[j] + d.ρ)  # Warping
+    @inbounds begin 
+        for i = 1:n
+            for j = 1:m
+                if X[i] == Y[j]
+                    curr_row[j+1] = prev_row[j] + 1.0 # Subpath length increment
+                    if curr_row[j+1] > z 
+                        z = curr_row[j+1]
+                    end 
+                else
+                    curr_row[j+1] = 0.0
+                end
             end
-            # @show curr_row
             copy!(prev_row, curr_row)
         end
-        return curr_row[end]
     end
+    return n + m - 2*z
 end
 
-function (d::PenalisedDTW)(
-    S1::Nothing, S2::InteractionSequence{T}
-    ) where {T<:Union{Int,String}}
-
-    d_g = d.ground_dist
-    z = 0.0
-    for x in S2
-        z += d_g(x, nothing) 
-    end 
-    return z + length(S2) * d.ρ
-
+function (dist::Union{LSP,FastLSP})(X::Nothing, Y::Vector{T})::Float64 where {T<:Union{Int,String}}
+    return length(Y)
 end 
-(d::PenalisedDTW)(S1::InteractionSequence{T}, S2::Nothing) where {T<:Union{Int,String}} = d(S2,S1)
-(d::PenalisedDTW)(S1::Nothing, S2::Nothing) where {T<:Union{Int,String}} = 0.0#
-
-struct NormPenalisedDTW <: SemiMetric
-    ground_dist::Metric
-    ρ::Real
-    d_unnorm::PenalisedDTW
-    function NormPenalisedDTW(d::Metric, ρ::Real)
-        new(d, ρ, PenalisedDTW(d, ρ))
-    end 
-end
-
-function (d::NormPenalisedDTW)(
-    S1::InteractionSequence{T}, S2::InteractionSequence{T}
-    ) where {T<:Union{Int,String}}
-
-    d_tmp = d.d_unnorm(S1,S2)
-    d_01 = d.d_unnorm(S1, nothing)
-    d_02 = d.d_unnorm(S2, nothing)
-    return 2 * d_tmp / (d_01 + d_02 + d_tmp)
+function (dist::Union{LSP,FastLSP})(X::Vector{T}, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+    return length(X)
 end 
-
-(d::NormPenalisedDTW)(S1::InteractionSequence{T}, S2::Nothing) where {T<:Union{Int,String}} = 1.0
-(d::NormPenalisedDTW)(S1::Nothing, S2::InteractionSequence{T}) where {T<:Union{Int,String}} = 1.0
-(d::NormPenalisedDTW)(S1::Nothing, S2::Nothing) where {T<:Union{Int,String}} = 0.0
-
-
-function print_matching(
-    d::Union{PenalisedDTW,NormPenalisedDTW}, 
-    S1::InteractionSequence{T}, S2::InteractionSequence{T}
-    ) where {T<:Union{Int,String}}
-    
-    d_g = d.ground_dist
-    # First find the substitution matrix
-    C = fill(Inf, length(S1)+1, length(S2)+1)
-    C[1,1] = 0.0
-
-    for j in 1:length(S2)
-        for i in 1:length(S1)
-            cost = d_g(S1[i], S2[j])
-            C[i+1,j+1] = cost + min(C[i+1,j] + d.ρ, C[i,j+1] + d.ρ, C[i,j])
-        end 
-    end
-    # Now retrace steps to determine an optimal matching
-    i, j = size(C)
-    pairs = Tuple{Int,Int}[]
-    warp_shift_mat = [0 d.ρ; d.ρ 0] # Extra bit here different from DTW
-    pushfirst!(pairs, (i-1,j-1))
-    while (i ≠ 2) | (j ≠ 2)
-        i_tmp, j_tmp = argmin(view(C, (i-1):i, (j-1):j) + warp_shift_mat).I
-        i = i - 2 + i_tmp
-        j = j - 2 + j_tmp
-        pushfirst!(pairs, (i-1,j-1))
-    end
-    # @show outputs
-    title = "Fixed Penalty DTW Print-out with $d_g Ground Distance and ρ=$(d.ρ)"
-    println(title)
-    println("-"^length(title), "\n")
-    println("The cheapest way to do the tranformation...\n")
-    println(S1, "---->", S2)
-    println("\n...is the following series of edits...\n")
-    # for statement in outputs
-    #     println(statement)
-    # end
-    i_tmp,j_tmp = (0,0)
-    for (i,j) in pairs 
-        if i == i_tmp 
-            println(" "^length(@sprintf("%s",S1[i])) * " ↘ $(S2[j])")
-        elseif j == j_tmp
-            println("$(S1[i]) ↗ " * " "^length(@sprintf("%s",S2[j])))
-        else 
-            println("$(S1[i]) → $(S2[j])")
-        end 
-        i_tmp, j_tmp = (i,j)
-    end 
-
+function (dist::Union{LSP,FastLSP})(X::Nothing, Y::Nothing) where {T<:Union{Int,String}}
+    return 0.0
 end 
