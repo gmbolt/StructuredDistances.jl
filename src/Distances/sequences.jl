@@ -26,7 +26,7 @@ struct FastNormLCS <: Metric
 end 
 
 # LCS
-function (dist::LCS)(X::AbstractVector,Y::AbstractVector)::Float64
+function (dist::LCS)(X::Vector{T},Y::Vector{T})::Float64 where {T}
 
     n = length(X)
     m = length(Y)
@@ -60,8 +60,8 @@ end
 
 # With storage 
 function (d::FastLCS)(
-    X::AbstractVector,Y::AbstractVector
-    )::Float64
+    X::Vector{T},Y::Vector{T}
+    )::Float64 where {T}
 
     n = length(X)
     m = length(Y)
@@ -92,20 +92,20 @@ function (d::FastLCS)(
 end
 
 # Distances to the null 
-function (dist::Union{LCS,FastLCS})(X::Nothing, Y::Vector{T})::Float64 where {T<:Union{Int,String}}
+function (dist::Union{LCS,FastLCS})(X::Nothing, Y::Vector{T})::Float64 where {T}
     return length(Y)
 end 
-function (dist::Union{LCS,FastLCS})(X::Vector{T}, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+function (dist::Union{LCS,FastLCS})(X::Vector{T}, Y::Nothing)::Float64 where {T}
     return length(X)
 end
-function (dist::Union{LCS,FastLCS})(X::Nothing, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+function (dist::Union{LCS,FastLCS})(X::Nothing, Y::Nothing)::Float64 where {T}
     return 0.0
 end 
 
 
 
-# Normalised LCS
-function (dist::NormLCS)(X::AbstractVector,Y::AbstractVector)
+# Normalised LCS 
+function (dist::NormLCS)(X::Vector{T},Y::Vector{T}) where {T}
     n = length(X)
     m = length(Y)
     d_lcs = lcs(X, Y)
@@ -113,8 +113,8 @@ function (dist::NormLCS)(X::AbstractVector,Y::AbstractVector)
 end
 
 function (d::FastNormLCS)(
-    X::AbstractVector,Y::AbstractVector
-    )::Float64
+    X::Vector{T},Y::Vector{T}
+    )::Float64 where {T}
 
     n = length(X)
     m = length(Y)
@@ -146,20 +146,20 @@ function (d::FastNormLCS)(
     return 2 * d_lcs / (n + m + d_lcs)
 end
 
-function (dist::Union{NormLCS,FastNormLCS})(X::Nothing, Y::Vector{T}) where {T<:Union{Int,String}}
+function (dist::Union{NormLCS,FastNormLCS})(X::Nothing, Y::Vector{T}) where {T}
     return 1.0
 end 
-function (dist::Union{NormLCS,FastNormLCS})(X::Vector{T}, Y::Nothing) where {T<:Union{Int,String}}
+function (dist::Union{NormLCS,FastNormLCS})(X::Vector{T}, Y::Nothing) where {T}
     return 1.0
 end 
-function (dist::Union{NormLCS,FastNormLCS})(X::Nothing, Y::Nothing) where {T<:Union{Int,String}}
+function (dist::Union{NormLCS,FastNormLCS})(X::Nothing, Y::Nothing) where {T}
     return 0.0
 end 
 
 
 # Get locations of longest common subseq (for visuals)
 
-function get_lcs_locations(X::AbstractVector, Y::AbstractVector)
+function get_lcs_locations(X::Vector{T}, Y::Vector{T}) where {T}
     
     C = zeros(Int, length(X)+1, length(Y)+1)
 
@@ -202,7 +202,7 @@ end
 
 struct LSP <: Metric end
 
-function (dist::LSP)(X::AbstractVector,Y::AbstractVector)::Float64
+function (dist::LSP)(X::Vector{T},Y::Vector{T})::Float64 where {T}
 
     # Here we consider a Dynamic programming approach
     n = length(X)
@@ -240,7 +240,7 @@ struct FastLSP <: Metric
     end 
 end 
 
-function (dist::FastLSP)(X::AbstractVector,Y::AbstractVector)::Float64
+function (dist::FastLSP)(X::Vector{T},Y::Vector{T})::Float64 where {T}
     # Here we take a Dynamic programming approach, but use pre-allocated arrays for storage.
     n = length(X)
     m = length(Y)
@@ -272,12 +272,12 @@ function (dist::FastLSP)(X::AbstractVector,Y::AbstractVector)::Float64
     return n + m - 2*z
 end
 
-function (dist::Union{LSP,FastLSP})(X::Nothing, Y::Vector{T})::Float64 where {T<:Union{Int,String}}
+function (dist::Union{LSP,FastLSP})(X::Nothing, Y::Vector{T})::Float64 where {T}
     return length(Y)
 end 
-function (dist::Union{LSP,FastLSP})(X::Vector{T}, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+function (dist::Union{LSP,FastLSP})(X::Vector{T}, Y::Nothing)::Float64 where {T}
     return length(X)
 end 
-function (dist::Union{LSP,FastLSP})(X::Nothing, Y::Nothing) where {T<:Union{Int,String}}
+function (dist::Union{LSP,FastLSP})(X::Nothing, Y::Nothing) where {T}
     return 0.0
 end 

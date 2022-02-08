@@ -1,20 +1,20 @@
 using StatsBase, Distances, Hungarian
 
 export LengthDistance
-export MatchingDist, FastMatchingDist, FpMatchingDist, print_matching
+export MatchingDistance, FastMatchingDistance, FpMatchingDistance, print_matching
 export CouplingDistance, PenalisedCouplingDistance
-export AvgSizeFpMatchingDist, NormFpMatchingDist
+export AvgSizeFpMatchingDistance, NormFpMatchingDistance
 export matching_dist_with_memory!
 
 
 # Matching Distance 
 # -----------------
 
-struct MatchingDist{T<:Metric} <: Metric
+struct MatchingDistance{T<:Metric} <: Metric
     ground_dist::T
 end
 
-function (d::MatchingDist)(S1::Vector{T}, S2::Vector{T}) where {T}
+function (d::MatchingDistance)(S1::Vector{T}, S2::Vector{T}) where {T}
     if length(S1) < length(S2)  # Ensure first is seq longest
         d(S2,S1)
     else
@@ -32,21 +32,21 @@ function (d::MatchingDist)(S1::Vector{T}, S2::Vector{T}) where {T}
     end
 end
 
-function (dist::MatchingDist)(X::Nothing, Y::Vector{T})::Float64 where {T<:Union{Int,String}}
+function (dist::MatchingDistance)(X::Nothing, Y::Vector{T})::Float64 where {T}
     return sum(p->dist.ground_dist(nothing,p), Y)
 end 
-function (dist::MatchingDist)(X::Vector{T}, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+function (dist::MatchingDistance)(X::Vector{T}, Y::Nothing)::Float64 where {T}
     return sum(p->dist.ground_dist(nothing,p), X)
 end 
 
-function (dist::MatchingDist)(X::Nothing, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+function (dist::MatchingDistance)(X::Nothing, Y::Nothing)::Float64 where {T}
     return 0.0
 end 
 
 function print_matching(
-    d::MatchingDist, 
+    d::MatchingDistance, 
     S1::Vector{T}, S2::Vector{T}
-    ) where {T<:Union{Int,String}}
+    ) where {T}
 
     # N.B. - do not use any if statments here like in evaluation of the distance. We simply do most general formulation since this will be right in all cases, and we do not care so much for controlling the size of the optimisation problem for this function since its performance is not of a concern (purely for extra info on distance).
     C = Distances.pairwise(d.ground_dist, S1, S2)
@@ -78,15 +78,15 @@ end
 
 
 
-struct FastMatchingDist <: Metric
+struct FastMatchingDistance <: Metric
     ground_dist::SemiMetric
     C::Matrix{Float64}
-    function FastMatchingDist(ground_dist::SemiMetric, K::Int)
+    function FastMatchingDistance(ground_dist::SemiMetric, K::Int)
         new(ground_dist, zeros(K,K))
     end 
 end 
 
-function (d::FastMatchingDist)(S1::Vector{T}, S2::Vector{T}) where {T}
+function (d::FastMatchingDistance)(S1::Vector{T}, S2::Vector{T}) where {T}
     if length(S1) < length(S2)  # Ensure first is seq longest
         d(S2,S1)
     else
@@ -140,14 +140,14 @@ end
 # ----------------------------------
 
 # For when ρ > K/2, where K is maximum distance between any pair of interactions (at least between the two observations). This will always be a complete matching. 
-struct FpMatchingDist{T<:Metric} <: Metric
+struct FpMatchingDistance{T<:Metric} <: Metric
     ground_dist::T
     penalty::Real
 end
 
-function (d::FpMatchingDist)(
+function (d::FpMatchingDistance)(
     S1::Vector{T}, S2::Vector{T}
-    ) where {T<:Union{Int,String}}
+    ) where {T}
 
     length(S1) < length(S2) ? (N_min, N_max)=(length(S1),length(S2)) : (N_min,N_max)=(length(S2),length(S1))
 
@@ -166,9 +166,9 @@ end
 
 
 function print_matching(
-    d::FpMatchingDist, 
+    d::FpMatchingDistance, 
     S1::Vector{T}, S2::Vector{T}
-    ) where {T<:Union{Int,String}}
+    ) where {T}
 
     # N.B. - do not use any if statments here like in evaluation of the distance. We simply do most general formulation since this will be right in all cases, and we do not care so much for controlling the size of the optimisation problem for this function since its performance is not of a concern (purely for extra info on distance).
     C = fill(d.penalty, length(S1)+length(S2), length(S1)+length(S2))
@@ -193,29 +193,29 @@ function print_matching(
 end
 
 
-struct AvgSizeFpMatchingDist{T<:Metric} <: Metric
+struct AvgSizeFpMatchingDistance{T<:Metric} <: Metric
     penalty::Real
 end 
 
-function (d::AvgSizeFpMatchingDist)(
+function (d::AvgSizeFpMatchingDistance)(
     S1::Vector{Path{T}}, S2::Vector{Path{T}}
     ) where {T}
 
-    d_m = FpMatchingDist(d.ground_dist, d.penalty)(S1, S2)[1]
+    d_m = FpMatchingDistance(d.ground_dist, d.penalty)(S1, S2)[1]
 
     return d_m + (mean(length.(S1)) - mean(length.(S2)))^2
 end 
 
-struct NormFpMatchingDist{T<:Metric} <: Metric
+struct NormFpMatchingDistance{T<:Metric} <: Metric
     ground_dist::T
     penalty::Real
 end
 
-function (d::NormFpMatchingDist)(S1::Vector{T}, S2::Vector{T}) where {T<:Union{Int,String}}
+function (d::NormFpMatchingDistance)(S1::Vector{T}, S2::Vector{T}) where {T}
     if length(S1) < length(S2)
         d(S2,S1)
     else
-        tmp_d = FpMatchingDist(d.ground_dist, d.penalty)(S1,S2)
+        tmp_d = FpMatchingDistance(d.ground_dist, d.penalty)(S1,S2)
         # @show tmp_d
         return 2*tmp_d / ( d.penalty*(length(S1) + length(S2)) + tmp_d )
     end
@@ -230,7 +230,7 @@ end
 
 function (d::CouplingDistance)(
     S1::Vector{T}, S2::Vector{T}
-    ) where {T<:Union{Int,String}}
+    ) where {T}
 
     if length(S1) < length(S2)  # Ensure first is seq longest
         d(S2,S1)
@@ -255,7 +255,7 @@ end
 
 function (d::PenalisedCouplingDistance)(
     S1::Vector{T}, S2::Vector{T}
-    ) where {T<:Union{Int,String}}
+    ) where {T}
 
     d_tmp = CouplingDistance(d.ground_dist)(S1,S2)
     return d_tmp + d.ρ * abs(length(S1)-length(S2))
@@ -265,7 +265,7 @@ end
 function print_matching(
     d::Union{CouplingDistance, PenalisedCouplingDistance}, 
     S1::Vector{T}, S2::Vector{T}
-    ) where {T<:Union{Int,String}}
+    ) where {T}
 
     C = Distances.pairwise(d.ground_dist, S1, S2)
     N,M = (length(S1), length(S2))
@@ -355,7 +355,7 @@ end
 #     ground_dist::T
 # end
 
-# function (d::EMD)(S1::Vector{T}, S2::Vector{T}) where {T<:Union{Int,String}}
+# function (d::EMD)(S1::Vector{T}, S2::Vector{T}) where {T}
 
 #     a = countmap(S1)
 #     b = countmap(S2)
@@ -405,7 +405,7 @@ end
 #     τ::Real
 # end 
 
-# function (d::sEMD2)(S1::Vector{T}, S2::Vector{T}) where {T<:Union{Int,String}}
+# function (d::sEMD2)(S1::Vector{T}, S2::Vector{T}) where {T}
     
 #     d₁ = EMD(d.ground_dist)(S1, S2)
 #     d₂ = d.length_dist(sum(length.(S1)), sum(length.(S2)))
