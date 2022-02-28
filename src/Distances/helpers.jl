@@ -129,23 +129,14 @@ function progress_pairwise(
     ) where {T}
 
     D = zeros(length(a), length(a))
-    if show_progress
-        iter = Progress(Int(length(a)*(length(a)-1)/2), 1)
-        for j in 1:length(a)
-            for i in 1:(j-1)
-                D[i,j] = d(a[i],a[j])
-                next!(iter)
-            end
+    iter = Progress(Int(length(a)*(length(a)-1)/2), 1)
+    for j in 1:length(a)
+        for i in 1:(j-1)
+            D[i,j] = d(a[i],a[j])
+            next!(iter)
         end
-        D += D'
-        return D
-    else 
-        for j in 1:length(a)
-            for i in 1:(j-1)
-                D[i,j] = d(a[i],a[j])
-            end
-        end
-        D += D'
-        return D
-    end 
+    end
+    D += D'
+    return D
+
 end
