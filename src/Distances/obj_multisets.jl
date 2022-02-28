@@ -164,6 +164,16 @@ function (d::FpMatchingDistance)(
     return hungarian(C)[2]
 end
 
+function (dist::FpMatchingDistance)(X::Nothing, Y::Vector{T})::Float64 where {T}
+    return dist.penalty * length(Y)
+end 
+function (dist::FpMatchingDistance)(X::Vector{T}, Y::Nothing)::Float64 where {T}
+    dist(Y, X)
+end 
+function (dist::FpMatchingDistance)(X::Nothing, Y::Nothing)::Float64 where {T}
+    return 0.0
+end 
+
 
 function print_matching(
     d::FpMatchingDistance, 
