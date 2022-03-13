@@ -4,7 +4,6 @@ using Distances
 
 # Write your package code here.
 
-include("aliases.jl")
 include("utils.jl")
 include("threaded_pairwise.jl")
 

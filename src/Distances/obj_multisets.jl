@@ -240,7 +240,7 @@ struct AvgSizeFpMatchingDistance{T<:Metric} <: Metric
 end 
 
 function (d::AvgSizeFpMatchingDistance)(
-    S1::Vector{Path{T}}, S2::Vector{Path{T}}
+    S1::Vector{Vector{T}}, S2::Vector{Vector{T}}
     ) where {T}
 
     d_m = FpMatchingDistance(d.ground_dist, d.penalty)(S1, S2)[1]
