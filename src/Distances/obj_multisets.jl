@@ -1,7 +1,8 @@
-using StatsBase, Distances, Hungarian
+using StatsBase, Distances, Hungarian, FLoops
 
 export LengthDistance
 export MatchingDistance, FastMatchingDistance, FpMatchingDistance, print_matching
+export ThreadedMatchingDistance
 export CouplingDistance, PenalisedCouplingDistance
 export AvgSizeFpMatchingDistance, NormFpMatchingDistance
 export matching_dist_with_memory!
@@ -18,16 +19,21 @@ function (d::MatchingDistance)(S1::Vector{T}, S2::Vector{T}) where {T}
     if length(S1) < length(S2)  # Ensure first is seq longest
         d(S2,S1)
     else
-        C = pairwise_inbounds(d.ground_dist, S1, S2)
         if length(S1) == length(S2)
-            # println("Same length")
-            return hungarian(C)[2]
+            begin
+                C = pairwise_inbounds(d.ground_dist, S1, S2)
+            end
+            out = hungarian(C)[2]
+            return out
         else 
-            # println("Diff length")
-            null_dists = [d.ground_dist(nothing, p) for p in S1]
-            size_diff = length(S1)-length(S2)
-            C = [C [x for x∈null_dists, j=1:size_diff]]
-            return hungarian(C)[2]
+            begin 
+                C = pairwise_inbounds(d.ground_dist, S1, S2)
+                null_dists = [d.ground_dist(nothing, p) for p in S1]
+                size_diff = length(S1)-length(S2)
+                C = [C [x for x∈null_dists, j=1:size_diff]]
+            end 
+            out = hungarian(C)[2]
+            return out
         end 
     end
 end
@@ -38,7 +44,6 @@ end
 function (dist::MatchingDistance)(X::Vector{T}, Y::Nothing)::Float64 where {T}
     return sum(p->dist.ground_dist(nothing,p), X)
 end 
-
 function (dist::MatchingDistance)(X::Nothing, Y::Nothing)::Float64 where {T}
     return 0.0
 end 
@@ -107,6 +112,33 @@ function (d::FastMatchingDistance)(S1::Vector{T}, S2::Vector{T}) where {T}
         end 
     end
 end
+
+struct ThreadedMatchingDistance{T<:Metric} <: Metric
+    ground_distance::T
+end 
+
+function (d::ThreadedMatchingDistance)(x::Vector{T}, y::Vector{T}) where {T}
+    if length(x) < length(y)  # Ensure first is seq longest
+        d(x,y)
+    else
+        d_g = d.ground_distance
+        N_min, N_max = (length(y), length(x))
+        C = zeros(N_max,N_max)
+        begin 
+            @inbounds begin
+                @floop for (i,j) in Iterators.product(eachindex(x), eachindex(y))
+                    C[i,j] = j ≤ N_min ? d_g(x[i],y[j]) : d_g(x[i], nothing) 
+                end
+            end  
+        end 
+        begin
+            out = hungarian(C)[2]
+        end 
+        return out 
+    end
+end
+
+
 
 function matching_dist_with_memory!(
     S1::Vector{T}, 

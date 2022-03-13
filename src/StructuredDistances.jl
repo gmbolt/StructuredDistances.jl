@@ -5,6 +5,8 @@ using Distances
 # Write your package code here.
 
 include("aliases.jl")
+include("utils.jl")
+include("threaded_pairwise.jl")
 
 include("Distances/helpers.jl")
 include("Distances/sequences.jl")

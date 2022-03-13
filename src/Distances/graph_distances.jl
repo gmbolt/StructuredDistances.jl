@@ -1,31 +1,28 @@
 using LinearAlgebra, Distances
-export Hamming, Jaccard
+export Diffusion
 export hamming_dist, jaccard_dist, diffusion_dist
 
-# A few graph distances. Operate between binary matrices.
-
-struct Hamming <: Metric end 
-
 """
-Compute the Hamming distance between two adjacency matrices
+Compute the Hamming distance between two adjacency matrices (directed graphs)
 """
-function hamming_dist(A1::Array{Int,2}, A2::Array{Int,2})
-    return sum(map(abs, A1 - A2)) / 2
+function hamming_dist(A1::Matrix{Int}, A2::Matrix{Int})
+    return sum(abs(x-y) for (x,y) in zip(A1,A2))
 end
 
-(d::Hamming)(A1::Array{Int,2}, A2::Array{Int,2}) = hamming_dist(A1,A2)
+(d::Distances.Hamming)(A1::Matrix{Int}, A2::Matrix{Int}) = hamming_dist(A1,A2)
 
-struct Jaccard <: Metric end 
+(d::Distances.Hamming)(A1::Matrix{Int}, A2::Nothing) = sum(A1)
+(d::Distances.Hamming)(A1::Nothing, A2::Matrix{Int}) = d(A2,A1)
+
 
 """
-Compute the Jaccard distance between two adjacency matrices
+Compute the Jaccard distance between two adjacency matrices (directed graphs)
 """
-function jaccard_dist(A1::Array{Int,2}, A2::Array{Int,2})
-    unique_edges = sum((A1 + A2) .> 0) / 2 # Number of unique edges (ie union cardinality)
-    return hamming_dist(A1, A2) / unique_edges
+function jaccard_dist(A1::Matrix{Int}, A2::Matrix{Int})
+    return 1 - sum(min(x,y) for (x,y) in zip(A1,A2)) / sum(max(x,y) for (x,y) in zip(A1,A2))
 end
 
-(d::Jaccard)(A1::Matrix{Int}, A2::Matrix{Int}) = jaccard_dist(A1,A2)
+(d::Distances.Jaccard)(A1::Matrix{Int}, A2::Matrix{Int}) = jaccard_dist(A1,A2)
 
 struct Diffusion <: Metric end 
 
@@ -33,7 +30,7 @@ struct Diffusion <: Metric end
 Compute the diffusion distance between two adjacency matrices with t the time
 of diffusion.
 """
-function diffusion_dist(A1::Array{Int,2}, A2::Array{Int,2}, t)
+function diffusion_dist(A1::Matrix{Int}, A2::Matrix{Int}, t)
     L1 = Diagonal(vec(sum(A1, dims = 2))) - A1
     L2 = Diagonal(vec(sum(A2, dims = 2))) - A2
     function matrixExp(A, t)
