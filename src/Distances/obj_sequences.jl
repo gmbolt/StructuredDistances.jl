@@ -1,7 +1,8 @@
 using StatsBase, Distances, Printf
 
-export EditDistance, FastEditDistance, FpEditDistance, NormFpEditDistance, AvgSizeFpEditDistance, DTW, PenalisedDTW
-export print_matching
+export EditDistance, FastEditDistance, FpEditDistance, NormFpEditDistance
+export AvgSizeFpEditDistance, DTW, PenalisedDTW
+export print_info, get_info, get_info_deep
 export NormPenalisedDTW
 
 
@@ -83,8 +84,7 @@ function (d::FastEditDistance)(S1::Vector{T}, S2::Vector{T}) where {T}
     end
 end
 
-
-function print_matching(
+function print_info(
     d::Union{EditDistance,FastEditDistance}, 
     S1::Vector{T}, S2::Vector{T}
     ) where {T}
@@ -108,10 +108,10 @@ function print_matching(
     i, j = size(C)
     pairs = Tuple{Int,Int}[]
     while (i ≠ 1) & (j ≠ 1)
-        if C[i,j] == (C[i,j-1] + d₀(Λ, S2[j-1]))
+        if C[i,j] == (C[i,j-1] + d₀(nothing, S2[j-1]))
             pushfirst!(pairs, (0,j-1))
             j = j-1
-        elseif C[i,j] == (C[i-1,j] + d₀(Λ, S1[i-1]))
+        elseif C[i,j] == (C[i-1,j] + d₀(nothing, S1[i-1]))
             pushfirst!(pairs, (i-1,0))
             i = i-1
         else
@@ -146,6 +146,41 @@ function print_matching(
 
 end 
 
+function get_info(
+    d::Union{EditDistance,FastEditDistance}, 
+    x::Vector{T}, y::Vector{T}
+    ) where {T}
+
+    d_g = d.ground_dist
+    # First find the substitution matrix
+    C = zeros(Float64, length(x)+1, length(y)+1)
+    C[:,1] = pushfirst!(cumsum([d_g(nothing, p) for p in x]), 0.0);
+    C[1,:] = pushfirst!(cumsum([d_g(nothing, p) for p in y]), 0.0);
+
+    for j in 1:length(y)
+        for i in 1:length(x)
+            C[i+1,j+1] = minimum([
+                C[i,j] + d_g(x[i], y[j]),
+                C[i,j+1] + d_g(nothing, x[i]),
+                C[i+1,j] + d_g(nothing, y[j])
+            ])
+        end 
+    end
+    # Now retrace steps to find indices of matched paths 
+    i, j = size(C)
+    indx, indy = (zeros(Bool, length(x)), zeros(Bool, length(y)))
+    while (i ≠ 1) & (j ≠ 1)
+        if C[i,j] == (C[i,j-1] + d_g(nothing, y[j-1]))
+            j = j-1
+        elseif C[i,j] == (C[i-1,j] + d_g(nothing, x[i-1]))
+            i = i-1
+        else
+            i = i-1; j = j-1
+            indx[i], indy[j] = (true,true)
+        end
+    end
+    return indx, indy
+end 
 
 struct FpEditDistance{T<:Metric} <: Metric
     ground_dist::T
@@ -153,7 +188,7 @@ struct FpEditDistance{T<:Metric} <: Metric
 end
 
 function (d::FpEditDistance)(S1::Vector{T}, S2::Vector{T}) where {T}
-    if length(S1) < length(S2)  # This ensures first seq is longest
+    if length(S1) < length(S2)  
         d(S2, S1)
     else
         prev_row = d.ρ/2 * collect(0:length(S2));
@@ -162,66 +197,110 @@ function (d::FpEditDistance)(S1::Vector{T}, S2::Vector{T}) where {T}
         for i = 1:length(S1)
             curr_row[1] = i*d.ρ
             for j = 1:(length(S2))
-                # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
                 curr_row[j+1] = minimum([prev_row[j] + d.ground_dist(S1[i], S2[j]),
                                         prev_row[j+1] + d.ρ/2,
                                         curr_row[j] + d.ρ/2])
             end
-            # @show curr_row
             prev_row = copy(curr_row)
         end
         return curr_row[end]
     end
 end
 
-
-
-function print_matching(d::FpEditDistance, S1::Vector{T}, S2::Vector{T}) where {T}
-
-    # First find the substitution matricx
-    C = zeros(Float64, length(S1)+1, length(S2)+1)
+function get_info(
+    d::FpEditDistance, 
+    x::Vector{T}, y::Vector{T}
+    ) where {T}
+    C = zeros(Float64, length(x)+1, length(y)+1)
     
-    C[:,1] = [d.ρ/2 * i for i = 0:length(S1)]
-    C[1,:] = [d.ρ/2 * i for i = 0:length(S2)]
+    C[:,1] = [d.ρ/2 * i for i = 0:length(x)]
+    C[1,:] = [d.ρ/2 * i for i = 0:length(y)]
     
-    for j = 1:length(S2)
-        for i = 1:length(S1)
+    for j = 1:length(y)
+        for i = 1:length(x)
             C[i+1,j+1] = minimum([
-            C[i,j] + d.ground_dist(S1[i], S2[j]),
+            C[i,j] + d.ground_dist(x[i], y[j]),
             C[i,j+1] + d.ρ/2,
             C[i+1,j] + d.ρ/2
             ])
         end
     end
-
     # Now retrace steps to determine an optimal matching
     i, j = size(C)
-    outputs = Vector{String}()
+    indx, indy = (zeros(Bool, length(x)), zeros(Bool, length(y)))
     while (i ≠ 1) | (j ≠ 1)
-        if C[i,j] == (C[i-1,j] + d.ρ/2 )
-            pushfirst!(outputs, "$(S1[i-1]) --> Nothing")
+        if C[i,j] == (C[i-1,j] + d.ρ/2)
             i = i-1
         elseif C[i,j] == (C[i,j-1] + d.ρ/2)
-            pushfirst!(outputs, "Nothing --> $(S2[j-1])")
             j = j-1
         else
-            pushfirst!(outputs, "$(S1[i-1]) ---> $(S2[j-1])")
             i = i-1; j = j-1
+            indx[i], indy[j] = (true,true)
         end
     end
-    # @show outputs
-    title = "\nOptimal Matching Print-out for Fixed-Penalty EditDistance"
+    return indx, indy
+end 
+
+
+function print_info(
+    d::Union{EditDistance,FastEditDistance,FpEditDistance}, 
+    x::Vector{T}, y::Vector{T}
+    ) where {T}
+    
+    indx, indy = get_info(d, x, y)
+    max_len = maximum(map(z->length(@sprintf("%s",z)), x))
+    ix , iy = (0,0)
+    title = "\nOptimal Matching"
     println(title)
     println("-"^length(title), "\n")
-    println("The cheapest way to do the tranformation...\n")
-    println(S1, "---->", S2)
-    println("\n...is the following series of edits...\n")
-    for statement in outputs
-        println(statement)
+    while true 
+        ixerr = isnothing(findnext(indx, ix+1)) ? length(x) : findnext(indx, ix+1)-1
+        iyerr = isnothing(findnext(indy, iy+1)) ? length(y) : findnext(indy, iy+1)-1
+        for j in (ix+1):ixerr
+            tmp1 = x[j]
+            tmp2 = "Null"
+            pad = max_len - length(@sprintf("%s", tmp1))
+            println(" "^pad * "$tmp1" , " → $tmp2")
+        end 
+        for j in (iy+1):iyerr
+            tmp1 = "Null"
+            tmp2 = y[j]
+            pad = max_len - length(@sprintf("%s", tmp1))
+            println(" "^pad * "$tmp1", " → $tmp2")
+        end 
+        if isnothing(findnext(indx, ix+1))
+            break 
+        end 
+        ix = findnext(indx, ix+1)
+        iy = findnext(indy, iy+1)
+        tmp1,tmp2 = (x[ix],y[iy])
+        pad = max_len - length(@sprintf("%s", tmp1))
+        println(" "^pad * "$tmp1", " → $tmp2")
     end
-end
+end 
 
+function get_info_deep(
+    d::Union{EditDistance,FastEditDistance,FpEditDistance}, 
+    x::Vector{T}, y::Vector{T}
+    ) where {T}
 
+    d_g = d.ground_dist
+    indx, indy = get_info(d, x, y)
+    outx, outy = (
+        [zeros(Bool,i) for i in length.(x)],
+        [zeros(Bool,i) for i in length.(y)]
+    )
+    ix , iy = (0,0)
+    while true 
+        if isnothing(findnext(indx, ix+1))
+            break 
+        end 
+        ix = findnext(indx, ix+1)
+        iy = findnext(indy, iy+1)
+        outx[ix], outy[iy] = get_info(d_g, x[ix], y[iy])
+    end
+    return outx, outy
+end 
 
 
 struct AvgSizeFpEditDistance{T<:Metric} <: Metric
@@ -303,7 +382,7 @@ end
 (d::DTW)(S1::Nothing, S2::Nothing) where {T} = 0.0
 
 
-function print_matching(
+function print_info(
     d::DTW, 
     S1::Vector{T}, S2::Vector{T}
     ) where {T}
@@ -424,7 +503,7 @@ end
 (d::NormPenalisedDTW)(S1::Nothing, S2::Nothing) where {T} = 0.0
 
 
-function print_matching(
+function print_info(
     d::Union{PenalisedDTW,NormPenalisedDTW}, 
     S1::Vector{T}, S2::Vector{T}
     ) where {T}
@@ -472,5 +551,4 @@ function print_matching(
         end 
         i_tmp, j_tmp = (i,j)
     end 
-
 end 

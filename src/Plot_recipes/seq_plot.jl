@@ -1,6 +1,7 @@
 using RecipesBase
 export SeqPlot
 export TestPlot
+export rectangle_corners
 
 function rectangle_corners(x::Real,y::Real,w,h; anchor=:bottomright)
     if anchor == :botttomright 

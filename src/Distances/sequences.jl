@@ -1,11 +1,11 @@
 using Distances, InvertedIndices
 
-export LCS, FastLCS, NormLCS, FastNormLCS, lcs, get_lcs, lcs_norm, get_lcs_locations
+export LCS, FastLCS
+export print_info, get_info
 export LSP, FastLSP
 ## Interaction Distances
 
 struct LCS <: Metric end
-struct NormLCS <: Metric end
 struct FastLCS <: Metric 
     curr_row::Vector{Int}
     prev_row::Vector{Int}
@@ -31,15 +31,30 @@ function (dist::LCS)(X::Vector{T},Y::Vector{T})::Float64 where {T}
     n = length(X)
     m = length(Y)
 
-    # @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
 
-    # Code only needs previous row to update next row using the rule from
-    # Wagner-Fisher algorithm
+    prevRow = 0:m
+    currRow = zeros(Int, m + 1)
+    @inbounds begin 
+        for i = 1:n
+            currRow[1] = i
+            for j = 1:m
+                if X[i] == Y[j]
+                    currRow[j+1] = prevRow[j]
+                else
+                    currRow[j+1] = min(currRow[j], prevRow[j+1]) + 1
+                end
+            end
+            prevRow = copy(currRow)
+        end 
+    end 
+    return currRow[end]
+end
 
-    #            Y
-    #       0 1 2   ...
-    #    X  1 0
-    #       2
+function (dist::LCS)(X::Tuple,Y::Tuple)::Float64 
+
+    n = length(X)
+    m = length(Y)
+
     prevRow = 0:m
     currRow = zeros(Int, m + 1)
     @inbounds begin 
@@ -104,65 +119,15 @@ end
 
 
 
-# Normalised LCS 
-function (dist::NormLCS)(X::Vector{T},Y::Vector{T}) where {T}
-    n = length(X)
-    m = length(Y)
-    d_lcs = lcs(X, Y)
-    return 2 * d_lcs / (n + m + d_lcs)
-end
-
-function (d::FastNormLCS)(
-    X::Vector{T},Y::Vector{T}
-    )::Float64 where {T}
-
-    n = length(X)
-    m = length(Y)
-
-    @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
-
-    @inbounds prev_row = view(d.prev_row, 1:(m+1))
-    @inbounds curr_row = view(d.curr_row, 1:(m+1))
-
-    copy!(prev_row, 0:m)
-    curr_row .= 0
-
-    # @show prev_row, curr_row
-
-    @inbounds begin 
-        for i = 1:n
-            curr_row[1] = i
-            for j = 1:m
-                if X[i] == Y[j]
-                    curr_row[j+1] = prev_row[j]
-                else
-                    curr_row[j+1] = min(curr_row[j], prev_row[j+1]) + 1
-                end
-            end
-            copy!(prev_row, curr_row)
-        end
-        d_lcs = curr_row[m+1]
-    end 
-    return 2 * d_lcs / (n + m + d_lcs)
-end
-
-function (dist::Union{NormLCS,FastNormLCS})(X::Nothing, Y::Vector{T}) where {T}
-    return 1.0
-end 
-function (dist::Union{NormLCS,FastNormLCS})(X::Vector{T}, Y::Nothing) where {T}
-    return 1.0
-end 
-function (dist::Union{NormLCS,FastNormLCS})(X::Nothing, Y::Nothing) where {T}
-    return 0.0
-end 
-
-
 # Get locations of longest common subseq (for visuals)
 
-function get_lcs_locations(X::Vector{T}, Y::Vector{T}) where {T}
+function get_info(
+    d::Union{LCS, FastLCS},
+    X::Vector{T}, Y::Vector{T}
+    ) where {T}
     
     C = zeros(Int, length(X)+1, length(Y)+1)
-
+    indx, indy = (zeros(Bool, length(X)), zeros(Bool, length(Y)))
     C[:,1] = [i for i = 0:length(X)]
     C[1,:] = [i for i = 0:length(Y)]
 
@@ -177,26 +142,21 @@ function get_lcs_locations(X::Vector{T}, Y::Vector{T}) where {T}
     end 
 
     i = length(X)+1; j = length(Y)+1;
-    indx = Vector{Int}()
-    indy = Vector{Int}() 
-    # outputs = Vector{String}()
     while (i ≠ 1) & (j ≠ 1)
         if C[i,j] == (C[i-1,j] + 1)
-            # println("Insert $(X[i-1]) of X")
             i = i-1
         elseif C[i,j] == (C[i, j-1] + 1)
-            # println("Insert $(Y[j-1]) of Y")
             j = j-1 
         elseif C[i,j] == (C[i-1, j-1])
-            # println("Sub $(X[i-1]) for $(Y[j-1])")
-            pushfirst!(indx, i-1)
-            pushfirst!(indy, j-1)
+            indx[i-1] = true
+            indy[j-1] = true
             i = i-1; j = j-1
         end
     end
 
     return indx, indy
 end
+
 
 # Longest Common Subpath (LSP)
 
@@ -280,4 +240,63 @@ function (dist::Union{LSP,FastLSP})(X::Vector{T}, Y::Nothing)::Float64 where {T}
 end 
 function (dist::Union{LSP,FastLSP})(X::Nothing, Y::Nothing) where {T}
     return 0.0
+end 
+
+function get_info(
+    d::Union{LSP, FastLSP},
+    X::Vector{T}, Y::Vector{T}
+    ) where {T}
+    
+    n,m = (length(X), length(Y))
+    curr_row = zeros(Int, m+1)
+    prev_row = zeros(Int, m+1)
+    z = 0
+
+    ix, iy = (0,0) # Denotes end of common subpath in X and Y resp.
+
+    begin 
+        for i = 1:n
+            for j = 1:m
+                if X[i] == Y[j]
+                    curr_row[j+1] = prev_row[j] + 1 # Subpath length increment
+                    if curr_row[j+1] > z 
+                        z = curr_row[j+1] # Found new longest subpath
+                        ix, iy = (i,j)
+                    end 
+                else
+                    curr_row[j+1] = 0
+                end
+            end
+            copy!(prev_row, curr_row)
+        end
+    end
+
+    indx = [(ix-z+1 ≤ i ≤ ix) ? true : false for i in 1:n]
+    indy = [(iy-z+1 ≤ i ≤ iy) ? true : false for i in 1:m]
+    return indx, indy
+end
+
+function print_info(
+    d::Union{LSP,FastLSP,LCS,FastLCS},
+    x::Vector{T}, y::Vector{T}
+    ) where {T}
+
+    indx, indy = get_info(d, x, y)
+    ix , iy = (0,0)
+    while true 
+        ixerr = isnothing(findnext(indx, ix+1)) ? length(x) : findnext(indx, ix+1)-1
+        iyerr = isnothing(findnext(indy, iy+1)) ? length(y) : findnext(indy, iy+1)-1
+        for j in (ix+1):ixerr
+            println("$(x[j]) (delete)")
+        end 
+        for j in (iy+1):iyerr
+            println("$(y[j]) (add)")
+        end 
+        if isnothing(findnext(indx, ix+1))
+            break 
+        end 
+        ix = findnext(indx, ix+1)
+        iy = findnext(indy, iy+1)
+        println("$(x[ix]) (keep)")
+    end
 end 

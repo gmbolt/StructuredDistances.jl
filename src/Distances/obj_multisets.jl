@@ -189,8 +189,8 @@ function (d::FpMatchingDistance)(
     # If we have max_dist > 2*ρ we must extend C to allow for interactions in BOTH observations being un-matched.
     if maximum(view(C, 1:length(S1), 1:length(S2))) > 2*d.penalty
         C = [
-            C fill(d.penalty, N_max, N_min); 
-            fill(d.penalty, N_min, N_max) fill(0.0, N_min, N_min)
+            C fill(d.penalty/2, N_max, N_min); 
+            fill(d.penalty/2, N_min, N_max) fill(0.0, N_min, N_min)
             ]
     end  
     return hungarian(C)[2]
@@ -213,7 +213,7 @@ function print_matching(
     ) where {T}
 
     # N.B. - do not use any if statments here like in evaluation of the distance. We simply do most general formulation since this will be right in all cases, and we do not care so much for controlling the size of the optimisation problem for this function since its performance is not of a concern (purely for extra info on distance).
-    C = fill(d.penalty, length(S1)+length(S2), length(S1)+length(S2))
+    C = fill(d.penalty/2, length(S1)+length(S2), length(S1)+length(S2))
     @views pairwise!(C[1:length(S1), 1:length(S2)], d.ground_dist, S1, S2)
     @views fill!(C[(end-length(S2)+1):end, (end-length(S1)+1):end], 0.0) 
     assignment, cost = hungarian(C)

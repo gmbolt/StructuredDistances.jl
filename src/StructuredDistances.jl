@@ -15,6 +15,8 @@ include("Distances/set_distances.jl")
 include("Distances/graph_distances.jl")
 include("Distances/normalised.jl")
 
-include("Plot_recipes/sequences.jl")
+include("Plot_recipes/seq_plot.jl")
+include("Plot_recipes/pathseq_plot.jl")
+# include("Plot_recipes/multigraph_plot.jl")
 
 end
