@@ -1,8 +1,9 @@
 using StatsBase, Distances, Hungarian, FLoops
 
 export LengthDistance
-export MatchingDistance, FastMatchingDistance, FpMatchingDistance, print_matching
+export MatchingDistance, FastMatchingDistance, FpMatchingDistance
 export ThreadedMatchingDistance
+export get_info, print_info, get_info_deep
 export CouplingDistance, PenalisedCouplingDistance
 export AvgSizeFpMatchingDistance, NormFpMatchingDistance
 export matching_dist_with_memory!
@@ -38,50 +39,6 @@ function (d::MatchingDistance)(S1::Vector{T}, S2::Vector{T}) where {T}
     end
 end
 
-function (dist::MatchingDistance)(X::Nothing, Y::Vector{T})::Float64 where {T}
-    return sum(p->dist.ground_dist(nothing,p), Y)
-end 
-function (dist::MatchingDistance)(X::Vector{T}, Y::Nothing)::Float64 where {T}
-    return sum(p->dist.ground_dist(nothing,p), X)
-end 
-function (dist::MatchingDistance)(X::Nothing, Y::Nothing)::Float64 where {T}
-    return 0.0
-end 
-
-function print_matching(
-    d::MatchingDistance, 
-    S1::Vector{T}, S2::Vector{T}
-    ) where {T}
-
-    # N.B. - do not use any if statments here like in evaluation of the distance. We simply do most general formulation since this will be right in all cases, and we do not care so much for controlling the size of the optimisation problem for this function since its performance is not of a concern (purely for extra info on distance).
-    C = Distances.pairwise(d.ground_dist, S1, S2)
-    size_diff = length(S1)-length(S2)
-    if size_diff > 0 
-        null_dists = [d.ground_dist(nothing, p) for p in S1]
-        C = [C [x for x∈null_dists, j=1:size_diff]]
-    else 
-        null_dists = [d.ground_dist(nothing, p) for p in S2]
-        C = [C ;[x for j=1:(-size_diff), x∈null_dists]]
-        # @show C, ext_C
-    end 
-    assignment, cost = hungarian(C)
-
-    for i in 1:length(S1)
-        j = assignment[i]
-        if j > length(S2)
-            println("$(S1[i]) ---> Null")
-        else 
-            println("$(S1[i]) ---> $(S2[j])")
-        end 
-    end 
-    for j in assignment[(length(S1)+1):end]
-        if j ≤ length(S2)
-            println("Null ---> $(S2[j])")
-        end 
-    end 
-end
-
-
 
 struct FastMatchingDistance <: Metric
     ground_dist::SemiMetric
@@ -112,6 +69,94 @@ function (d::FastMatchingDistance)(S1::Vector{T}, S2::Vector{T}) where {T}
         end 
     end
 end
+
+
+function (dist::Union{MatchingDistance,FastMatchingDistance})(X::Nothing, Y::Vector{T})::Float64 where {T}
+    return sum(p->dist.ground_dist(nothing,p), Y)
+end 
+function (dist::Union{MatchingDistance,FastMatchingDistance})(X::Vector{T}, Y::Nothing)::Float64 where {T}
+    return sum(p->dist.ground_dist(nothing,p), X)
+end 
+function (dist::Union{MatchingDistance,FastMatchingDistance})(X::Nothing, Y::Nothing)::Float64 where {T}
+    return 0.0
+end 
+
+
+function get_info(
+    d::Union{MatchingDistance,FastMatchingDistance},
+    x::Vector{T}, y::Vector{T}
+    ) where {T}
+
+    C = Distances.pairwise(d.ground_dist, x, y)
+    size_diff = length(x)-length(y)
+    if size_diff > 0 
+        null_dists = [d.ground_dist(nothing, p) for p in x]
+        C = [C [x for x∈null_dists, j=1:size_diff]]
+    else 
+        null_dists = [d.ground_dist(nothing, p) for p in y]
+        C = [C ;[x for j=1:(-size_diff), x∈null_dists]]
+        # @show C, ext_C
+    end 
+    assignment, cost = hungarian(C)
+    indx, indy = (Int[], Int[])
+    for i in eachindex(x)
+        j = assignment[i]
+        if j ≤ length(y)
+            push!(indx, i)
+            push!(indy, j)
+        end 
+    end 
+    return indx, indy
+end 
+
+function print_info(
+    d::Union{MatchingDistance,FastMatchingDistance}, 
+    x::Vector{T}, y::Vector{T}
+    ) where {T}
+
+    indx, indy = get_info(d, x, y)
+    max_len = maximum(map(z->length(@sprintf("%s",z)), x[indx]))
+    for (i,j) in zip(indx,indy)
+        xtmp, ytmp = (x[i],y[j])
+        pad = max_len - length(@sprintf("%s", xtmp))
+        println(" "^pad * "$xtmp", " → $ytmp")
+    end 
+    println("\nUnmatched entries (first):")
+    for i in eachindex(x)
+        if i ∉ indx 
+            print("$(x[i]), ")
+        end 
+    end 
+    println("\nUnmatched entries (second):")
+    for i in eachindex(y)
+        if i ∉ indy
+            print("$(y[i]), ")
+        end 
+    end 
+end
+
+function get_info_deep(
+    d::Union{MatchingDistance,FastMatchingDistance},
+    x::Vector{T}, y::Vector{T}
+    ) where {T}
+
+    d_g = d.ground_dist 
+
+    indx, indy = get_info(d, x, y) # Paired entries from x and y 
+
+    outx, outy = (
+        [zeros(Bool,i) for i in length.(x)],
+        [zeros(Bool,i) for i in length.(y)]
+    )
+    
+    for (i,j) in zip(indx, indy)
+        outx[i], outy[j] = get_info(d_g, x[i], y[j])
+    end 
+
+    return outx, outy
+
+end 
+
 
 struct ThreadedMatchingDistance{T<:Metric} <: Metric
     ground_distance::T
