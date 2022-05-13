@@ -131,7 +131,7 @@ function (d::Union{MatchDist,FastMatchDist})(X::Nothing, Y::Vector{T})::Float64 
     return sum(p->dist.ground_dist(nothing,p), Y)
 end 
 function (d::Union{MatchDist,FastMatchDist})(X::Vector{T}, Y::Nothing)::Float64 where {T}
-    return dist(Y, X)
+    return d(Y, X)
 end 
 function (d::Union{MatchDist,FastMatchDist})(X::Nothing, Y::Nothing)::Float64 where {T}
     return 0.0
@@ -205,13 +205,13 @@ end
 #     return hungarian(C)[2]
 # end
 
-function (dist::FixPenMatchDist)(X::Nothing, Y::Vector{T})::Float64 where {T}
-    return dist.penalty * length(Y)
+function (d::FixPenMatchDist)(X::Nothing, Y::Vector{T})::Float64 where {T}
+    return d.penalty * length(Y)
 end 
-function (dist::FixPenMatchDist)(X::Vector{T}, Y::Nothing)::Float64 where {T}
-    dist(Y, X)
+function (d::FixPenMatchDist)(X::Vector{T}, Y::Nothing)::Float64 where {T}
+    d(Y, X)
 end 
-function (dist::FixPenMatchDist)(X::Nothing, Y::Nothing)::Float64 where {T}
+function (d::FixPenMatchDist)(X::Nothing, Y::Nothing)::Float64 where {T}
     return 0.0
 end 
 
@@ -270,13 +270,13 @@ function get_cost_matrix_fixed(
 
 end 
 
-function (dist::AvgSizeMatchDist)(X::Nothing, Y::Vector{T})::Float64 where {T}
-    return (dist.penalty * length(Y)) + sum(x->dist.ground_dist(x,nothing), Y)
+function (d::AvgSizeMatchDist)(X::Nothing, Y::Vector{T})::Float64 where {T}
+    return (d.penalty * length(Y)) + sum(x->dist.ground_dist(x,nothing), Y)
 end 
-function (dist::AvgSizeMatchDist)(X::Vector{T}, Y::Nothing)::Float64 where {T}
-    dist(Y, X)
+function (d::AvgSizeMatchDist)(X::Vector{T}, Y::Nothing)::Float64 where {T}
+    d(Y, X)
 end 
-function (dist::AvgSizeMatchDist)(X::Nothing, Y::Nothing)::Float64 where {T}
+function (d::AvgSizeMatchDist)(X::Nothing, Y::Nothing)::Float64 where {T}
     return 0.0
 end 
 
