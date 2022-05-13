@@ -128,7 +128,7 @@ function get_cost_matrix_fixed(
 end 
 
 function (d::Union{MatchDist,FastMatchDist})(X::Nothing, Y::Vector{T})::Float64 where {T}
-    return sum(p->dist.ground_dist(nothing,p), Y)
+    return sum(p->d.ground_dist(nothing,p), Y)
 end 
 function (d::Union{MatchDist,FastMatchDist})(X::Vector{T}, Y::Nothing)::Float64 where {T}
     return d(Y, X)
