@@ -75,7 +75,7 @@ function get_cost_matrix_dynamic(
         return get_cost_matrix_dynamic(d,Y,X)
     elseif N==M
         C = view(d.C, 1:N, 1:N)
-        return pairwise_inbounds!(C, d.ground_dist, X, Y)
+        pairwise_inbounds!(C, d.ground_dist, X, Y)
     else 
         C = view(d.C, 1:N, 1:N)
         pairwise_inbounds!(C, d.ground_dist, X, Y)
@@ -110,7 +110,7 @@ function get_cost_matrix_fixed(
         end 
     elseif N==M
         C = view(d.C, 1:N, 1:N)
-        return pairwise_inbounds!(C, d.ground_dist, X, Y)
+        pairwise_inbounds!(C, d.ground_dist, X, Y)
     else 
         C = view(d.C, 1:N, 1:N)
         pairwise_inbounds!(C, d.ground_dist, X, Y)
