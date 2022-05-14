@@ -82,7 +82,7 @@ function get_cost_matrix_dynamic(
         for i in 1:N
             C[i,M+1] = d.ground_dist(nothing, X[i])
         end 
-        for j in (M+2):M
+        for j in (M+2):N
             for i in 1:N
                 C[i,j] = C[i,j-1]
             end 

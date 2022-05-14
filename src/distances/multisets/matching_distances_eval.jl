@@ -9,7 +9,13 @@ function (d::T where {T<:CompleteMatchingDistance})(
     X::Vector{S}, Y::Vector{S}
     ) where {S}
     C = get_cost_matrix_dynamic(d, X, Y)
-    return hungarian(C)[2]
+    if size(C) == (0,0)
+        println("Weird hungarian output")
+        @show X, Y
+    else 
+        out = hungarian(C)
+        return out[2]
+    end 
 end 
 
 function Base.show(io::IO, d_gen::General{T}) where {T<:CompleteMatchingDistance} 
