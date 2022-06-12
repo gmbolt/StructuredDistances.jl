@@ -89,6 +89,17 @@ function (d::FastEditDistance)(S1::Vector{T}, S2::Vector{T}) where {T}
     end
 end
 
+function (d::Union{EditDist,FastEditDist})(X::Nothing, Y::Vector{T})::Float64 where {T}
+    return sum(p->d.ground_dist(nothing,p), Y)
+end 
+function (d::Union{EditDist,FastEditDist})(X::Vector{T}, Y::Nothing)::Float64 where {T}
+    return d(Y, X)
+end 
+function (d::Union{EditDist,FastEditDist})(X::Nothing, Y::Nothing)::Float64 where {T}
+    return 0.0
+end 
+
+
 function print_info(
     d::Union{EditDistance,FastEditDistance}, 
     S1::Vector{T}, S2::Vector{T}
@@ -213,6 +224,16 @@ function (d::FixPenEditDist)(S1::Vector{T}, S2::Vector{T}) where {T}
         return curr_row[end]
     end
 end
+
+function (d::FixPenEditDist)(X::Nothing, Y::Vector{T})::Float64 where {T}
+    return d.penalty * length(Y)
+end 
+function (d::FixPenEditDist)(X::Vector{T}, Y::Nothing)::Float64 where {T}
+    d(Y, X)
+end 
+function (d::FixPenEditDist)(X::Nothing, Y::Nothing)::Float64 where {T}
+    return 0.0
+end 
 
 function get_info(
     d::FixPenEditDist, 
