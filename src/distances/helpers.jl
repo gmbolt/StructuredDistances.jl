@@ -91,7 +91,7 @@ function in Distances.jl is designed for univariate/multivariate data and so tak
 as input either vectors or matrices (data points as rows).
 """
 function Distances.pairwise(
-    metric::Metric,
+    metric::SemiMetric,
     a::Vector{T},
     b::Vector{T} 
     ) where {T}
@@ -105,7 +105,7 @@ function Distances.pairwise(
 end
 
 function pairwise_inbounds(
-    metric::Metric,
+    metric::SemiMetric,
     a::Vector{T},
     b::Vector{T} 
     ) where {T}
@@ -124,7 +124,7 @@ end
 Distance matrix calculation between elements of Vectors with progress bar.
 """
 function progress_pairwise(
-    d::Metric,
+    d::SemiMetric,
     a::Vector{T}
     ) where {T}
 
