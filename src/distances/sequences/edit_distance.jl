@@ -226,7 +226,7 @@ function (d::FixPenEditDist)(S1::Vector{T}, S2::Vector{T}) where {T}
 end
 
 function (d::FixPenEditDist)(X::Nothing, Y::Vector{T})::Float64 where {T}
-    return d.penalty * length(Y)
+    return d.ρ * length(Y)
 end 
 function (d::FixPenEditDist)(X::Vector{T}, Y::Nothing)::Float64 where {T}
     d(Y, X)
