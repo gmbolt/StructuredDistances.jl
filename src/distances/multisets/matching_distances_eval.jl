@@ -12,12 +12,12 @@ Base.show(io::IO, d::CompleteMatchingDistance) = print(io, typeof(d))
 function (d::T where {T<:CompleteMatchingDistance})(
     X::Vector{S}, Y::Vector{S}
 ) where {S}
-    C = get_cost_matrix_dynamic(d, X, Y)
+    @time C = get_cost_matrix_dynamic(d, X, Y)
     if size(C) == (0, 0)
         println("Weird hungarian output")
         @show X, Y
     else
-        out = hungarian(C)
+        @time out = hungarian(C)
         return out[2]
     end
 end
