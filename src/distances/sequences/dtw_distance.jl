@@ -2,26 +2,26 @@ using StatsBase, Distances, Printf
 
 export DTW, FixedPenaltyDTW, FixPenDTW
 
-struct DTW <: SemiMetric
-    ground_dist::Metric
+struct DTW{T<:SemiMetric} <: SemiMetric
+    ground_dist::T
 end
 
 function (d::DTW)(
     S1::Vector{T}, S2::Vector{T}
-    ) where {T}
+) where {T}
     if length(S1) < length(S2)  # This ensures first seq is longest
         d(S2, S1)
     else
-        @assert (length(S1)>0) & (length(S2)>0) "both args must be either of type Nothing or of nonzero length."
+        @assert (length(S1) > 0) & (length(S2) > 0) "both args must be either of type Nothing or of nonzero length."
         d_g = d.ground_dist
-        prev_row = pushfirst!(fill(Inf, length(S2)), 0.0);
-        curr_row = fill(Inf, length(S2) + 1);
+        prev_row = pushfirst!(fill(Inf, length(S2)), 0.0)
+        curr_row = fill(Inf, length(S2) + 1)
 
         for i = 1:length(S1)
             # curr_row[1] = prev_row[1]
             for j = 1:(length(S2))
                 # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
-                cost = d_g(S1[i],S2[j])
+                cost = d_g(S1[i], S2[j])
                 curr_row[j+1] = cost + min(prev_row[j], prev_row[j+1], curr_row[j])
             end
             # @show curr_row
@@ -33,45 +33,45 @@ end
 
 function (d::DTW)(
     S1::Nothing, S2::Vector{T}
-    ) where {T}
+) where {T}
 
     d_g = d.ground_dist
     z = 0.0
     for x in S2
-        z += d_g(x, nothing) 
-    end 
-    return z + length(S2) 
+        z += d_g(x, nothing)
+    end
+    return z + length(S2)
 
-end 
-(d::DTW)(S1::Vector{T}, S2::Nothing) where {T} = d(S2,S1)
+end
+(d::DTW)(S1::Vector{T}, S2::Nothing) where {T} = d(S2, S1)
 (d::DTW)(S1::Nothing, S2::Nothing) where {T} = 0.0
 
 
 function print_info(
-    d::DTW, 
+    d::DTW,
     S1::Vector{T}, S2::Vector{T}
-    ) where {T}
-    
+) where {T}
+
     d = d.ground_dist
     # First find the substitution matrix
-    C = fill(Inf, length(S1)+1, length(S2)+1)
-    C[1,1] = 0.0
+    C = fill(Inf, length(S1) + 1, length(S2) + 1)
+    C[1, 1] = 0.0
 
     for j in 1:length(S2)
         for i in 1:length(S1)
             cost = d(S1[i], S2[j])
-            C[i+1,j+1] = cost + min(C[i+1,j], C[i,j+1], C[i,j])
-        end 
+            C[i+1, j+1] = cost + min(C[i+1, j], C[i, j+1], C[i, j])
+        end
     end
     # Now retrace steps to determine an optimal matching
     i, j = size(C)
     pairs = Tuple{Int,Int}[]
-    pushfirst!(pairs, (i-1,j-1))
+    pushfirst!(pairs, (i - 1, j - 1))
     while (i ≠ 2) | (j ≠ 2)
         i_tmp, j_tmp = argmin(view(C, (i-1):i, (j-1):j)).I
         i = i - 2 + i_tmp
         j = j - 2 + j_tmp
-        pushfirst!(pairs, (i-1,j-1))
+        pushfirst!(pairs, (i - 1, j - 1))
     end
     # @show outputs
     title = "Optimal Coupling"
@@ -80,25 +80,25 @@ function print_info(
     # for statement in outputs
     #     println(statement)
     # end
-    i_tmp,j_tmp = (0,0)
-    for (i,j) in pairs 
-        if i == i_tmp 
-            println(" "^length(@sprintf("%s",S1[i])) * " ↘ $(S2[j])")
+    i_tmp, j_tmp = (0, 0)
+    for (i, j) in pairs
+        if i == i_tmp
+            println(" "^length(@sprintf("%s", S1[i])) * " ↘ $(S2[j])")
         elseif j == j_tmp
-            println("$(S1[i]) ↗ " * " "^length(@sprintf("%s",S2[j])))
-        else 
+            println("$(S1[i]) ↗ " * " "^length(@sprintf("%s", S2[j])))
+        else
             println("$(S1[i]) → $(S2[j])")
-        end 
-        i_tmp, j_tmp = (i,j)
-    end 
+        end
+        i_tmp, j_tmp = (i, j)
+    end
 
-end 
+end
 
 # Penalised 
 # ---------
 
-struct FixedPenaltyDTW <: Metric
-    ground_dist::Metric
+struct FixedPenaltyDTW{T<:SemiMetric} <: SemiMetric
+    ground_dist::T
     ρ::Real
 end
 
@@ -106,19 +106,19 @@ const FixPenDTW = FixedPenaltyDTW
 
 function (d::FixPenDTW)(
     S1::Vector{T}, S2::Vector{T}
-    ) where {T}
+) where {T}
     if length(S1) < length(S2)  # This ensures first seq is longest
         d(S2, S1)
     else
         d_g = d.ground_dist
-        prev_row = pushfirst!(fill(Inf, length(S2)), 0.0);
-        curr_row = fill(Inf, length(S2) + 1);
+        prev_row = pushfirst!(fill(Inf, length(S2)), 0.0)
+        curr_row = fill(Inf, length(S2) + 1)
 
         for i = 1:length(S1)
             # curr_row[1] = prev_row[1]
             for j = 1:(length(S2))
                 # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
-                cost = d_g(S1[i],S2[j])
+                cost = d_g(S1[i], S2[j])
                 curr_row[j+1] = cost + min(
                     prev_row[j], # New pair (no warping)
                     prev_row[j+1] + d.ρ, # Warping 
@@ -133,46 +133,46 @@ end
 
 function (d::FixPenDTW)(
     S1::Nothing, S2::Vector{T}
-    ) where {T}
+) where {T}
 
     d_g = d.ground_dist
     z = 0.0
     for x in S2
-        z += d_g(x, nothing) 
-    end 
+        z += d_g(x, nothing)
+    end
     return z + length(S2) * d.ρ
 
-end 
-(d::FixPenDTW)(S1::Vector{T}, S2::Nothing) where {T} = d(S2,S1)
+end
+(d::FixPenDTW)(S1::Vector{T}, S2::Nothing) where {T} = d(S2, S1)
 (d::FixPenDTW)(S1::Nothing, S2::Nothing) where {T} = 0.0#
 
 
 function print_info(
-    d::Union{FixPenDTW}, 
+    d::Union{FixPenDTW},
     S1::Vector{T}, S2::Vector{T}
-    ) where {T}
-    
+) where {T}
+
     d_g = d.ground_dist
     # First find the substitution matrix
-    C = fill(Inf, length(S1)+1, length(S2)+1)
-    C[1,1] = 0.0
+    C = fill(Inf, length(S1) + 1, length(S2) + 1)
+    C[1, 1] = 0.0
 
     for j in 1:length(S2)
         for i in 1:length(S1)
             cost = d_g(S1[i], S2[j])
-            C[i+1,j+1] = cost + min(C[i+1,j] + d.ρ, C[i,j+1] + d.ρ, C[i,j])
-        end 
+            C[i+1, j+1] = cost + min(C[i+1, j] + d.ρ, C[i, j+1] + d.ρ, C[i, j])
+        end
     end
     # Now retrace steps to determine an optimal matching
     i, j = size(C)
     pairs = Tuple{Int,Int}[]
     warp_shift_mat = [0 d.ρ; d.ρ 0] # Extra bit here different from DTW
-    pushfirst!(pairs, (i-1,j-1))
+    pushfirst!(pairs, (i - 1, j - 1))
     while (i ≠ 2) | (j ≠ 2)
         i_tmp, j_tmp = argmin(view(C, (i-1):i, (j-1):j) + warp_shift_mat).I
         i = i - 2 + i_tmp
         j = j - 2 + j_tmp
-        pushfirst!(pairs, (i-1,j-1))
+        pushfirst!(pairs, (i - 1, j - 1))
     end
     # @show outputs
     title = "Fixed Penalty DTW Print-out with $d_g Ground Distance and ρ=$(d.ρ)"
@@ -184,15 +184,15 @@ function print_info(
     # for statement in outputs
     #     println(statement)
     # end
-    i_tmp,j_tmp = (0,0)
-    for (i,j) in pairs 
-        if i == i_tmp 
-            println(" "^length(@sprintf("%s",S1[i])) * " ↘ $(S2[j])")
+    i_tmp, j_tmp = (0, 0)
+    for (i, j) in pairs
+        if i == i_tmp
+            println(" "^length(@sprintf("%s", S1[i])) * " ↘ $(S2[j])")
         elseif j == j_tmp
-            println("$(S1[i]) ↗ " * " "^length(@sprintf("%s",S2[j])))
-        else 
+            println("$(S1[i]) ↗ " * " "^length(@sprintf("%s", S2[j])))
+        else
             println("$(S1[i]) → $(S2[j])")
-        end 
-        i_tmp, j_tmp = (i,j)
-    end 
-end 
+        end
+        i_tmp, j_tmp = (i, j)
+    end
+end

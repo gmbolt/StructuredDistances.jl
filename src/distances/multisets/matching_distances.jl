@@ -8,7 +8,7 @@ export AvgSizeMatchingDistance, AvgSizeMatchDist
 export get_cost_matrix_dynamic, get_cost_matrix_fixed
 
 
-struct MatchingDistance{T<:Metric} <: Metric
+struct MatchingDistance{T<:SemiMetric} <: SemiMetric
     ground_dist::T
 end
 
@@ -53,10 +53,10 @@ function get_cost_matrix_fixed(
 end
 
 
-struct FastMatchingDistance{T<:Metric} <: Metric
+struct FastMatchingDistance{T<:SemiMetric} <: SemiMetric
     ground_dist::T
     C::Matrix{Float64}
-    function FastMatchingDistance(ground_dist::S, K::Int) where {S<:Metric}
+    function FastMatchingDistance(ground_dist::S, K::Int) where {S<:SemiMetric}
         new{S}(ground_dist, zeros(K, K))
     end
 end
@@ -137,14 +137,14 @@ function (d::Union{MatchDist,FastMatchDist})(X::Nothing, Y::Nothing)::Float64 wh
     return 0.0
 end
 
-struct FixedPenaltyMatchingDistance{T<:Metric} <: Metric
+struct FixedPenaltyMatchingDistance{T<:SemiMetric} <: SemiMetric
     ground_dist::T
     penalty::Float64
 end
 
 const FixPenMatchDist = FixedPenaltyMatchingDistance
 # const FixPenMatchDist{T} = FixedPenaltyMatchingDistance{T}
-# FixPenMatchDist(d_g::Metric, penalty::Float64) = FixedPenaltyMatchingDistance(d_g, penalty)
+# FixPenMatchDist(d_g::SemiMetric, penalty::Float64) = FixedPenaltyMatchingDistance(d_g, penalty)
 
 Base.show(io::IO, d::FixPenMatchDist) = print(io, "$(typeof(d))(ρ=$(d.penalty))")
 
@@ -215,7 +215,7 @@ function (d::FixPenMatchDist)(X::Nothing, Y::Nothing)::Float64 where {T}
     return 0.0
 end
 
-struct AvgSizeMatchingDistance{T<:Metric} <: Metric
+struct AvgSizeMatchingDistance{T<:SemiMetric} <: SemiMetric
     ground_dist::T
     penalty::Float64
 end
@@ -281,7 +281,7 @@ function (d::AvgSizeMatchDist)(X::Nothing, Y::Nothing)::Float64 where {T}
 end
 
 
-struct MinDistMatchingDistance{T<:Metric} <: SemiMetric
+struct MinDistMatchingDistance{T<:SemiMetric} <: SemiMetric
     ground_dist::T
     penalty::Float64
 end
