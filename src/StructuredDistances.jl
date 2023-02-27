@@ -1,15 +1,17 @@
 module StructuredDistances
 
-using Distances 
+using Distances
 
 # Write your package code here.
 
 include("utils.jl")
-include("threaded_pairwise.jl")
 include("distances/helpers.jl")
 
 # Path distances 
-include("distances/paths.jl")
+include("distances/paths/paths.jl")
+
+# Graph distances 
+include("distances/graphs/graph_distances.jl")
 
 # Multiset distances
 include("distances/multisets/matching_distances.jl")
@@ -23,9 +25,6 @@ include("distances/sequences/dtw_distance.jl")
 
 # Basic set distances (Hamming + Jaccard)
 include("distances/set_distances.jl")
-
-# Graph distances 
-include("distances/graph_distances.jl")
 
 # Normalised distances (normalises any metric)
 include("distances/normalised.jl")
