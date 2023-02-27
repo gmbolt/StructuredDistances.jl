@@ -14,17 +14,12 @@ Base.show(io::IO, d::CompleteMatchingDistance) = print(io, typeof(d))
 function (d::T where {T<:CompleteMatchingDistance})(
     X::Vector{S}, Y::Vector{S}
 ) where {S}
-    @time C = get_cost_matrix_dynamic(d, X, Y)
-    if size(C) == (0, 0)
-        println("Weird hungarian output")
-        @show X, Y
-    else
-        x = ones(size(C, 1))
-        @time out = PythonOT.emd2(
-            x, x, C
-        )
-        return out
-    end
+    C = get_cost_matrix_dynamic(d, X, Y)
+    x = ones(size(C, 1))
+    out = PythonOT.emd2(
+        x, x, C
+    )
+    return out
 end
 
 function Base.show(io::IO, d_gen::General{T}) where {T<:CompleteMatchingDistance}
