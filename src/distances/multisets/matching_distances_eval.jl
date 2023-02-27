@@ -1,3 +1,5 @@
+using PythonOT
+
 export get_info, print_info, get_info_deep
 
 # Distance evaluation & summarisation
@@ -17,8 +19,11 @@ function (d::T where {T<:CompleteMatchingDistance})(
         println("Weird hungarian output")
         @show X, Y
     else
-        @time out = hungarian(C)
-        return out[2]
+        x = ones(size(C, 1))
+        @time out = PythonOT.emd2(
+            x, x, C
+        )
+        return out
     end
 end
 
