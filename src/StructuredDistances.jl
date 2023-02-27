@@ -23,6 +23,9 @@ include("distances/multisets/earth_movers_distance.jl")
 include("distances/sequences/edit_distance.jl")
 include("distances/sequences/dtw_distance.jl")
 
+# Pre-computed distances
+include("distances/pre_computed.jl")
+
 # Basic set distances (Hamming + Jaccard)
 include("distances/set_distances.jl")
 
