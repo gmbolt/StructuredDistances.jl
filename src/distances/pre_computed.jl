@@ -20,8 +20,9 @@ Constructor method which takes distance + collection of values and makes a pre-c
 """
 function pre_compute(d::SemiMetric, data::Vector{T}) where {T}
 
-    cache = Dict{Tuple{T,T},Float64}()
-    for (a, b) in Base.Iterators.product(data, data)
+    TypeVal = Union{T,Nothing}
+    cache = Dict{Tuple{TypeVal,TypeVal},Float64}()
+    for (a, b) in Base.Iterators.product([data...; nothing], [data...; nothing])
         cache[(a, b)] = d(a, b)
     end
     return PrecomputedDistance(cache)
