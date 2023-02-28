@@ -51,8 +51,8 @@ end
 
 const FastEditDist = FastEditDistance
 
-function Base.show(io::IO, d::FastEditDistance)
-    print(io, "EditDistance (max num. interactions $(length(d.curr_row))) with $(d.ground_dist) ground distance.")
+function Base.show(io::IO, d::FastEditDistance{T}) where {T<:SemiMetric}
+    print(io, "FastEditDistance{$(T),$(length(d.curr_row))}")
 end
 
 function (d::FastEditDistance)(S1::Vector{T}, S2::Vector{T}) where {T}

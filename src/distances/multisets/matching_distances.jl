@@ -63,7 +63,7 @@ end
 
 const FastMatchDist = FastMatchingDistance
 
-Base.show(io::IO, d::FastMatchingDistance) = print(io, "$(typeof(d))(K=$(size(d.C,1)))")
+Base.show(io::IO, d::FastMatchingDistance{T}) where {T<:SemiMetric} = print(io, "FastMatchingDistance{$(T),$(size(d.C,1))}")
 
 function get_cost_matrix_dynamic(
     d::FastMatchingDistance,
