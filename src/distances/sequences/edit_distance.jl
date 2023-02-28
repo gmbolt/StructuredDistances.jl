@@ -223,7 +223,7 @@ function (d::FixPenEditDist)(S1::Vector{T}, S2::Vector{T}) where {T}
                     curr_row[j] + d.ρ
                 )
             end
-            prev_row = copy(curr_row)
+            copy!(prev_row, curr_row)
         end
         return curr_row[end]
     end
@@ -272,7 +272,6 @@ function (d::FastFixPenEditDist)(S1::Vector{T}, S2::Vector{T}) where {T}
                     curr_row[j] + d.ρ
                 )
             end
-            # @show curr_row
             copy!(prev_row, curr_row)
         end
         return curr_row[length(S2)+1]
