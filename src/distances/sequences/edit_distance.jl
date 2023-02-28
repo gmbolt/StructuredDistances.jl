@@ -3,6 +3,7 @@ using StatsBase, Printf, Distances
 export EditDistance, EditDist
 export FastEditDistance, FastEditDist
 export FixedPenaltyEditDistance, FixPenEditDist
+export FastFixedPenaltyEditDistance, FastFixPenEditDist
 export AvgSizeFpEditDistance
 export print_info, get_info, get_info_deep
 
@@ -25,7 +26,6 @@ function (d::EditDistance)(S1::Vector{T}, S2::Vector{T}) where {T}
         for i = 1:length(S1)
             curr_row[1] = prev_row[1] + length(S1[i])
             for j = 1:(length(S2))
-                # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
                 curr_row[j+1] = min(prev_row[j] + d₀(S1[i], S2[j]),
                     prev_row[j+1] + d₀(nothing, S1[i]),
                     curr_row[j] + d₀(nothing, S2[j]))
@@ -227,18 +227,72 @@ function (d::FixPenEditDist)(S1::Vector{T}, S2::Vector{T}) where {T}
     end
 end
 
-function (d::FixPenEditDist)(X::Nothing, Y::Vector{T})::Float64 where {T}
+# FixedPenaltyEditDistance with Memory
+# ------------------------------------
+
+struct FastFixedPenaltyEditDistance{T<:SemiMetric} <: SemiMetric
+    ground_dist::T
+    ρ::Real
+    curr_row::Vector{Float64}
+    prev_row::Vector{Float64}
+    function FastFixedPenaltyEditDistance(ground_dist::S, ρ::Float64, K::Int) where {S<:SemiMetric}
+        new{S}(ground_dist, ρ, zeros(Float64, K), zeros(Float64, K))
+    end
+end
+
+const FastFixPenEditDist = FastFixedPenaltyEditDistance
+
+function Base.show(io::IO, d::FastFixPenEditDist{T}) where {T<:SemiMetric}
+    print(io, "FastFixPenEditDist{$(T),$(length(d.curr_row))}")
+end
+
+function (d::FastFixPenEditDist)(S1::Vector{T}, S2::Vector{T}) where {T}
+    if length(S1) < length(S2)  # This ensures first seq is longest
+        d(S2, S1)
+    else
+        d₀ = d.ground_dist
+        prev_row = view(d.prev_row, 1:(length(S2)+1))
+        curr_row = view(d.curr_row, 1:(length(S2)+1))
+
+        prev_row[1] = 0.0
+        for i in eachindex(S2)
+            prev_row[i+1] = prev_row[i] + d.ρ
+        end
+        curr_row .= 0.0
+
+
+        @views for i in eachindex(S1)
+            curr_row[1] = prev_row[1] + length(S1[i])
+            for j in eachindex(S2)
+                curr_row[j+1] = min(
+                    prev_row[j] + d₀(S1[i], S2[j]),
+                    prev_row[j+1] + d.ρ,
+                    curr_row[j] + d.ρ
+                )
+            end
+            # @show curr_row
+            copy!(prev_row, curr_row)
+        end
+        return curr_row[length(S2)+1]
+    end
+end
+
+# Distance to nothings 
+
+function (d::Union{FixPenEditDist,FastFixPenEditDist})(X::Nothing, Y::Vector{T})::Float64 where {T}
     return d.ρ * length(Y)
 end
-function (d::FixPenEditDist)(X::Vector{T}, Y::Nothing)::Float64 where {T}
+function (d::Union{FixPenEditDist,FastFixPenEditDist})(X::Vector{T}, Y::Nothing)::Float64 where {T}
     d(Y, X)
 end
-function (d::FixPenEditDist)(X::Nothing, Y::Nothing)::Float64 where {T}
+function (d::Union{FixPenEditDist,FastFixPenEditDist})(X::Nothing, Y::Nothing)::Float64 where {T}
     return 0.0
 end
 
+
+
 function get_info(
-    d::FixPenEditDist,
+    d::Union{FixPenEditDist,FastFixPenEditDist},
     x::Vector{T}, y::Vector{T}
 ) where {T}
     C = zeros(Float64, length(x) + 1, length(y) + 1)
@@ -274,7 +328,7 @@ end
 
 
 function print_info(
-    d::Union{EditDistance,FastEditDistance,FixPenEditDist},
+    d::Union{EditDistance,FastEditDistance,FixPenEditDist,FastFixPenEditDist},
     x::Vector{T}, y::Vector{T}
 ) where {T}
 
@@ -311,7 +365,7 @@ function print_info(
 end
 
 function get_info_deep(
-    d::Union{EditDistance,FastEditDistance,FixPenEditDist},
+    d::Union{EditDistance,FastEditDistance,FixPenEditDist,FastFixPenEditDist},
     x::Vector{T}, y::Vector{T}
 ) where {T}
 
