@@ -12,19 +12,15 @@ function (d::DTW)(
     if length(S1) < length(S2)  # This ensures first seq is longest
         d(S2, S1)
     else
-        @assert (length(S1) > 0) & (length(S2) > 0) "both args must be either of type Nothing or of nonzero length."
         d_g = d.ground_dist
         prev_row = pushfirst!(fill(Inf, length(S2)), 0.0)
         curr_row = fill(Inf, length(S2) + 1)
 
-        for i = 1:length(S1)
-            # curr_row[1] = prev_row[1]
-            for j = 1:(length(S2))
-                # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
+        for i in eachindex(S1)
+            for j in eachindex(S2)
                 cost = d_g(S1[i], S2[j])
                 curr_row[j+1] = cost + min(prev_row[j], prev_row[j+1], curr_row[j])
             end
-            # @show curr_row
             copy!(prev_row, curr_row)
         end
         return curr_row[end]
@@ -114,17 +110,14 @@ function (d::FixPenDTW)(
         prev_row = pushfirst!(fill(Inf, length(S2)), 0.0)
         curr_row = fill(Inf, length(S2) + 1)
 
-        for i = 1:length(S1)
-            # curr_row[1] = prev_row[1]
-            for j = 1:(length(S2))
-                # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
+        for i in eachindex(S1)
+            for j in eachindex(S2)
                 cost = d_g(S1[i], S2[j])
                 curr_row[j+1] = cost + min(
                     prev_row[j], # New pair (no warping)
                     prev_row[j+1] + d.ρ, # Warping 
                     curr_row[j] + d.ρ)  # Warping
             end
-            # @show curr_row
             copy!(prev_row, curr_row)
         end
         return curr_row[end]
