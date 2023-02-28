@@ -17,13 +17,6 @@ end
 function Base.show(io::IO, d::FastLCS)
     print(io, "FastLCS{$(length(d.curr_row))}")
 end
-struct FastNormLCS <: Metric
-    curr_row::Vector{Int}
-    prev_row::Vector{Int}
-    function FastNormLCS(K::Int)
-        new(zeros(Int, K), zeros(Int, K))
-    end
-end
 
 # LCS
 function (dist::LCS)(X::Vector{T}, Y::Vector{T})::Float64 where {T}
