@@ -214,12 +214,14 @@ function (d::FixPenEditDist)(S1::Vector{T}, S2::Vector{T}) where {T}
         prev_row = d.ρ * collect(0:length(S2))
         curr_row = zeros(Float64, length(S2) + 1)
 
-        for i = 1:length(S1)
+        for i in eachindex(S1)
             curr_row[1] = i * d.ρ
-            for j = 1:(length(S2))
-                curr_row[j+1] = minimum([prev_row[j] + d.ground_dist(S1[i], S2[j]),
+            for j in eachindex(S2)
+                curr_row[j+1] = min(
+                    prev_row[j] + d.ground_dist(S1[i], S2[j]),
                     prev_row[j+1] + d.ρ,
-                    curr_row[j] + d.ρ])
+                    curr_row[j] + d.ρ
+                )
             end
             prev_row = copy(curr_row)
         end
