@@ -1,7 +1,11 @@
 using Distances
 
 export Normalised
+"""
+Normalised distance obtained by applying Steinhaus transform to given distance. 
 
+Note this will be a metric given `d` is a metric.
+"""
 struct Normalised{T<:SemiMetric} <: SemiMetric
     d::T
 end
