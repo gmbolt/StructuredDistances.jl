@@ -306,6 +306,3 @@ function print_info(
         println("$(x[ix]) (keep)")
     end
 end
-
-struct SuffixLSP <: Metric end
-
